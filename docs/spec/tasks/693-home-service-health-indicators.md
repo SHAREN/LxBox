@@ -2,8 +2,9 @@
 
 | Field | Value |
 |---|---|
-| Status | In progress |
+| Status | Implemented locally — Flutter/CI/device verification blocked by environment |
 | Start date | 2026-10-31 |
+| Commits | `cb30073d` — `feat: add per-node service health indicators` |
 | Source | Owner request: show per-node service availability directly in the Home VPN node list |
 | Related specs | [007-NODE_LIST](../features/007-NODE_LIST/FEATURE.md), [009-NODE_HEALTH](../features/009-NODE_HEALTH/FEATURE.md), [392F node diagnostics](392F-node-diagnostics/) |
 
@@ -37,7 +38,7 @@ Service semantics:
 - `YT`: 2xx–4xx except explicit deny statuses are reachable; 403/451 are blocked; transport/TLS errors and 5xx are technical failure.
 - `GPT`: 2xx, 401 and 429 are reachable; 403 containing `unsupported_country_region_territory` is region-blocked; other 403/HTTP anomalies are technical failure, not a regional verdict.
 
-Results are session-only and are cleared naturally when the app process restarts. They never disable or hide nodes and do not alter Auto composition; the separate OpenAI diagnostic policy remains responsible for automatic regional exclusions.
+Results are session-only and are cleared when the VPN tunnel goes down or the app process restarts. They never disable or hide nodes and do not alter Auto composition.
 
 ## Files
 
@@ -60,10 +61,15 @@ Results are session-only and are cleared naturally when the app process restarts
 
 ## Verification
 
-1. Static analysis and targeted unit/widget tests pass.
-2. On a connected device, start the service check from Home; visible real nodes move from neutral to checking and then to final states without switching the selected VPN node.
-3. A node that reaches OpenAI with HTTP 401 shows GPT available.
-4. A node returning OpenAI `unsupported_country_region_territory` shows GPT blocked/red while NET/YT can remain green independently.
-5. A TLS/timeout failure shows a technical-failure/orange indicator, not a false region block.
-6. Tapping Stop during a run prevents later results from the cancelled generation from changing the displayed snapshot.
-7. No service sweep runs automatically on connect, resume, timer, scroll, or background lifecycle.
+Completed locally on 2026-10-31:
+
+1. `git diff --check` — pass.
+2. `app/assets/l10n/{ru,zh}/ui.json` — valid JSON with Python's case-sensitive parser.
+3. Source audit — `getUrlViaOutbound` is addressed by outbound tag and does not switch the active selector; the implementation has no connect/resume/timer/background trigger.
+4. Classifier unit cases are added for NET success, transport failure, YouTube deny, OpenAI 401, unsupported-country 403 and generic 403.
+
+Blocked in the current environment:
+
+- `flutter analyze`, `flutter test` and APK build were not run: Flutter/Dart SDK is not installed in Home PC PATH and was not found in the project/workspace or targeted development directories.
+- GitHub CI could not be started from this branch: `origin` is `Leadaxe/LxBox`, push as `SHAREN` is denied with HTTP 403, and `SHAREN/LxBox` does not currently exist as a fork.
+- Device acceptance therefore remains pending: badge layout on the phone, real NET/YT/GPT responses, cancellation during live requests and tunnel-down clearing must be confirmed on an APK built from this commit.
