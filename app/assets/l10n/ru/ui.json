@@ -1585,6 +1585,9 @@
   "Check": {
     "value": "Проверка"
   },
+  "Check services": {
+    "value": "Проверить сервисы"
+  },
   "Check failed: %s": {
     "value": "Не удалось проверить: %s"
   },
@@ -4902,6 +4905,9 @@
   },
   "Stop checking": {
     "value": "Остановить"
+  },
+  "Stop service check": {
+    "value": "Остановить проверку сервисов"
   },
   "Stop timed out": {
     "value": "Остановка не завершилась вовремя"

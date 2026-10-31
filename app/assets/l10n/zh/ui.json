@@ -1387,6 +1387,9 @@
   "Check": {
     "value": "检查"
   },
+  "Check services": {
+    "value": "检查服务"
+  },
   "Check failed: %s": {
     "value": "检查失败：%s"
   },
@@ -4629,6 +4632,9 @@
   },
   "Stop checking": {
     "value": "停止检查"
+  },
+  "Stop service check": {
+    "value": "停止服务检查"
   },
   "Stop timed out": {
     "value": "停止超时"

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/home/special_node_display.dart';
 import '../screens/subscription_detail_screen/widgets/node_warning_row.dart';
+import '../models/service_health.dart';
 import 'node_view_item.dart';
 import '../services/networks_direction.dart';
 import '../services/l10n/locale_controller.dart';
@@ -214,7 +215,71 @@ class NodeRow extends StatelessWidget {
     return item.delayIsForeign ? base.withValues(alpha: 0.55) : base;
   }
 
-  /// `[ACTIVE] [protocol]              [50ms]` — left part flex, ping right-aligned.
+  bool get _showsServiceHealth =>
+      !_isTailnet &&
+      !_isBlock &&
+      item.outboundType != 'selector' &&
+      item.outboundType != 'urltest';
+
+  Color _serviceHealthColor(
+      ColorScheme cs, ServiceHealthResult result) {
+    return switch (result.state) {
+      ServiceHealthState.untested => cs.onSurfaceVariant.withValues(alpha: 0.45),
+      ServiceHealthState.checking => cs.primary,
+      ServiceHealthState.available => Colors.green,
+      ServiceHealthState.blocked => cs.error,
+      ServiceHealthState.failed => Colors.orange,
+    };
+  }
+
+  Widget _serviceHealthBadge(
+    ColorScheme cs,
+    String label,
+    ServiceHealthResult result,
+  ) {
+    final color = _serviceHealthColor(cs, result);
+    return Container(
+      height: 16,
+      constraints: const BoxConstraints(minWidth: 22),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(
+            alpha: result.state == ServiceHealthState.untested ? 0.04 : 0.14),
+        border: Border.all(color: color.withValues(alpha: 0.72), width: 0.8),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        label, // l10n-exempt: compact technical service abbreviation.
+        maxLines: 1,
+        style: TextStyle(
+          fontSize: 7.5,
+          height: 1,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.1,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildServiceHealthBadges(ColorScheme cs) {
+    if (!_showsServiceHealth) return null;
+    final health = item.serviceHealth;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _serviceHealthBadge(cs, 'NET', health.net),
+        const SizedBox(width: 2),
+        _serviceHealthBadge(cs, 'YT', health.youtube),
+        const SizedBox(width: 2),
+        _serviceHealthBadge(cs, 'GPT', health.chatgpt),
+      ],
+    );
+  }
+
+  /// `[ACTIVE] [protocol]       [NET][YT][GPT] [50ms]` — left flex, health and
+  /// ping stay compact and right-aligned.
   Widget _buildSubtitleRow(BuildContext context, ColorScheme cs) {
     final hasActive = item.active;
     final hasArrow = item.urltestNow != null && item.urltestNow!.isNotEmpty;
@@ -233,6 +298,7 @@ class NodeRow extends StatelessWidget {
     // §535 — подпись «узел не поднят / спит» живёт в левой части строки:
     // правый бейдж узкий и моноширинный, фраза туда не влезает.
     final stateLabel = _isBlock ? '' : _endpointStateLabel;
+    final serviceHealthBadges = _buildServiceHealthBadges(cs);
 
     if (!hasActive &&
         !hasArrow &&
@@ -240,6 +306,7 @@ class NodeRow extends StatelessWidget {
         !hasAuto &&
         !hasNotificationBadge &&
         stateLabel.isEmpty &&
+        serviceHealthBadges == null &&
         dl.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -387,6 +454,10 @@ class NodeRow extends StatelessWidget {
               ],
             ),
           ),
+          if (serviceHealthBadges != null) ...[
+            const SizedBox(width: 6),
+            serviceHealthBadges,
+          ],
           const SizedBox(width: 6),
           right,
         ],

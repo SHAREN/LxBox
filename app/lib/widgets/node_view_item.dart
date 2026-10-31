@@ -1,4 +1,5 @@
 import '../models/node_warning.dart';
+import '../models/service_health.dart';
 import '../services/networks_direction.dart' show TailnetNote, TailnetRowState;
 import '../services/openconnect_auth.dart' show OpenConnectRowKind;
 
@@ -24,6 +25,7 @@ class NodeViewItem {
     required this.delay,
     this.delayIsForeign = false,
     required this.pingBusy,
+    this.serviceHealth = NodeServiceHealth.untested,
     required this.tunnelUp,
     required this.busy,
     required this.urltestNow,
@@ -67,6 +69,9 @@ class NodeViewItem {
 
   /// True если ping in-flight для этой ноды (`state.pingBusy[tag] == '…'`).
   final bool pingBusy;
+
+  /// §693 — latest explicit NET/YT/GPT reachability snapshot for this node.
+  final NodeServiceHealth serviceHealth;
 
   /// §535 (ядро SPEC 097) — состояние WG/AWG-endpoint'а: `never_built`,
   /// `building`, `up`, `asleep`, `torn_down`, `down`. Пусто = узел не

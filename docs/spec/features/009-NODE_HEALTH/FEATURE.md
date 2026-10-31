@@ -24,7 +24,7 @@ why the VPN won't start after a subscription update. The feature answers these
 questions with measurements and verdicts, without making the user switch the
 active node, break live connections or decipher English core errors.
 
-The feature protects five principles:
+The feature protects six principles:
 
 - **A measurement answers about the node, not about the route.** Ping, the
   server test and diagnostics address the node directly; the active group
@@ -42,6 +42,10 @@ The feature protects five principles:
   body changes.
 - **Testing does not crash the app.** A mass test of memory-heavy nodes runs
   in batches, not as one config.
+- **Service checks are explicit real traffic.** NET/YT/GPT checks send real HTTP
+  requests through a node. They run only after a user gesture, are bounded in
+  parallelism, never switch the active selector, and are cleared when the
+  tunnel goes down.
 
 ## Promises
 
@@ -144,6 +148,16 @@ The feature protects five principles:
 - **P17. Speed test measures in three phases.** Ping — trimmed mean of 5
   attempts, download — N parallel streams updated every 0.5 s, upload — 2
   streams; history — the last 10 runs of the session. `no witness`.
+- **P18. Service reachability is explicit, per-node and independent.** One Home
+  action checks NET, YouTube and OpenAI regional reachability through every
+  visible real node without changing the selected node. Four nodes are checked
+  at most in parallel; each node runs its three requests in sequence. Results
+  are session-only, a second tap cancels the generation, late replies are
+  ignored, and tunnel teardown clears all badges. OpenAI `401`/`429` proves
+  reachability; only an unsupported-country response is a regional block, while
+  TLS/timeout/other HTTP failures stay technical failures. **Witness**: unit
+  classifier tests plus manual Home-list check. **Mutation**: run automatically
+  on connect or treat every OpenAI `403` as a region block.
 
 ## Controlled parameters
 
@@ -180,16 +194,18 @@ without a tunnel. Core rejection string: `initialize <outbound|endpoint>[<i>]
 
 ## Inputs / Outputs
 
-**Inputs:** user gesture (tap/long tap on the ping button, node menu item,
-list test button, Run in diagnostics, Start); tunnel transition to
-"connected"/"stopped", app backgrounding; core replies to measurements; core
-rejection text at start; the settings above; Debug API commands.
+**Inputs:** user gesture (tap/long tap on the ping button, service-check button,
+node menu item, list test button, Run in diagnostics, Start); tunnel transition
+to "connected"/"stopped", app backgrounding; core replies to measurements and
+service HTTP requests; core rejection text at start; the settings above; Debug
+API commands.
 
-**Outputs:** latency or `ERR` on a node in the list and a test badge;
-reselection of URLTest groups in the core; summary `N ok · N err · N broken`;
-disabled nodes (in bulk — by user action, automatically — by core rejection)
-with a reason; the "N servers disabled" banner; the raw reply of a diagnostic
-request; speed test results; `urltest` keys in the config.
+**Outputs:** latency or `ERR` on a node in the list and a test badge; NET/YT/GPT
+service-health badges on ordinary Home nodes; reselection of URLTest groups in
+the core; summary `N ok · N err · N broken`; disabled nodes (in bulk — by user
+action, automatically — by core rejection) with a reason; the "N servers
+disabled" banner; the raw reply of a diagnostic request; speed test results;
+`urltest` keys in the config.
 
 ## Data flow
 
@@ -197,6 +213,9 @@ request; speed test results; `urltest` keys in the config.
 ping:        gesture/auto-ping → URL+timeout (Direction → global → template)
              → measure in the live core (≤10 in parallel) → Direction map
              → color/sort → [selected one failed] → core group test
+services:    explicit Home gesture → visible real node tags (≤4 nodes parallel)
+             → NET → YT → GPT GETs via each outbound → session badge map
+             → cancel/tunnel-down invalidates late replies
 test:        gesture → VPN off? ─no→ "Stop VPN" → node batches
              → temporary core session per batch (≤6 measurements in parallel)
              → badge by node key → bulk actions
@@ -212,6 +231,9 @@ rejection:   Start → core start → rejection names the node → disable + ver
 - Mass ping follows the display order of the list (with filter and sort) and
   snapshots the URL, timeout and target Direction at the start of the run.
 - Measurements live in app memory and are not written to storage.
+- Service-health checks are never scheduled automatically. They require a Home
+  gesture, skip control groups/block, keep at most four nodes in flight, never
+  switch the active selector, and are cleared when the tunnel goes down.
 - The server test and diagnostics with the VPN off are mutually exclusive
   with the live core: starting the VPN closes a hanging test session.
 - Auto-disable fires only on the Start button (and on a Debug start with the
@@ -249,6 +271,7 @@ rejection:   Start → core start → rejection names the node → disable + ver
 | URLTest group | Passes measurement and switching parameters to the core's `urltest` group, forces a re-test with reselection and keeps `interval` and `idle_timeout` consistent. | P6–P8 | [urltest-group.md](FUNCTIONS/urltest-group.md) |
 | List server test | Tests every node of a subscription or folder without the VPN, colours badges by thresholds and applies bulk actions to the results. | P3, P9–P12 | [server-list-test.md](FUNCTIONS/server-list-test.md) |
 | Node diagnostics | Sends one HTTP request through a node to a chosen service and shows the raw reply, without switching the active node. | P13 | [node-diagnostics.md](FUNCTIONS/node-diagnostics.md) |
+| Home service health | Explicitly checks NET, YouTube and OpenAI regional reachability through each visible real node and paints independent compact badges without switching the active node. | P18 | [service-health.md](FUNCTIONS/service-health.md) |
 | Auto-disable of nodes rejected by the core | Disables nodes the core rejects at start, keeps the core's verbatim reason as a verdict and reports them in a banner. | P14–P16 | [core-reject-auto-disable.md](FUNCTIONS/core-reject-auto-disable.md) |
 | Speed test | Measures ping, download and upload of the device's current path, through the tunnel when the VPN is up. | P17 | [speed-test.md](FUNCTIONS/speed-test.md) |
 

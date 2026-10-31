@@ -6,6 +6,7 @@ import '../../../controllers/home_controller.dart';
 import '../../../controllers/subscription_controller.dart';
 import '../../../models/home_state.dart';
 import '../../../models/node_warning.dart';
+import '../../../models/service_health.dart';
 import '../../../services/direction_mutations.dart';
 import '../../../services/settings_storage.dart';
 import '../../../services/tag_resolver.dart';
@@ -635,6 +636,8 @@ class HomeNodeList extends StatelessWidget {
           // §325 — замер не этого Направления: рисуем приглушённо со значком.
           delayIsForeign: state.delayIsForeign(tag),
           pingBusy: state.pingBusy[tag] == '…',
+          serviceHealth:
+              state.serviceHealth[tag] ?? NodeServiceHealth.untested,
           // §535 — состояние WG/AWG-endpoint'а: не собран / спит вместо
           // пустого бейджа. Тега нет в карте = узел не endpoint.
           endpointState: state.endpointStates[tag] ?? '',

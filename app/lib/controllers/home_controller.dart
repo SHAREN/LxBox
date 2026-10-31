@@ -9,6 +9,7 @@ import '../vpn/cc_channel.dart';
 import '../config/config_parse.dart';
 import '../models/direction.dart' show UrltestMode;
 import '../models/home_state.dart';
+import '../models/service_health.dart';
 import '../services/app_log.dart';
 import '../services/automation/event_emitter.dart';
 import '../services/config_staleness.dart';
@@ -23,14 +24,16 @@ import '../services/template_loader.dart';
 import '../services/haptic_service.dart';
 import '../services/rule_set_auto_updater.dart';
 import '../services/subscription/auto_updater.dart';
+import '../services/subscription/user_agent.dart';
 import '../services/core_reject/core_reject_state.dart';
 
 part 'home_controller/config_io.dart';
 part 'home_controller/heartbeat.dart';
 part 'home_controller/ping_orchestration.dart';
+part 'home_controller/service_health.dart';
 
 class HomeController extends ChangeNotifier
-    with _ConfigIoMixin, _HeartbeatMixin, _PingMixin {
+    with _ConfigIoMixin, _HeartbeatMixin, _PingMixin, _ServiceHealthMixin {
   HomeController({
     AutoUpdater? autoUpdater,
     RuleSetAutoUpdater? ruleSetAutoUpdater,
@@ -375,13 +378,25 @@ class HomeController extends ChangeNotifier
     // закрывает весь класс разом; точечные `if (_disposed) return` после await
     // (§219) остаются как ранний выход, но больше не единственная защита.
     if (_disposed) return;
+
+    // §693 — service-health относится к конкретной живой VPN-сессии. После
+    // остановки/падения туннеля старые зелёные/красные бейджи уже не являются
+    // доказательством текущего пути. Одновременно инвалидируем late results
+    // незавершённого прогона.
+    final healthNormalized = !next.tunnelUp && next.serviceHealth.isNotEmpty
+        ? next.copyWith(serviceHealth: const <String, NodeServiceHealth>{})
+        : next;
+    if (!healthNormalized.tunnelUp) _invalidateServiceHealthRun();
+
     // §654 C — снапшот openconnect виден только при поднятом туннеле: при
     // выключенном он протух (поток мог не дойти до спящего движка), а
     // пришедший раньше перехода в connected показывается на переходе.
-    final oc = next.tunnelUp ? _openConnectRaw : CcOpenConnectSnapshot.empty;
-    _state = identical(oc, next.openConnect)
-        ? next
-        : next.copyWith(openConnect: oc);
+    final oc = healthNormalized.tunnelUp
+        ? _openConnectRaw
+        : CcOpenConnectSnapshot.empty;
+    _state = identical(oc, healthNormalized.openConnect)
+        ? healthNormalized
+        : healthNormalized.copyWith(openConnect: oc);
     notifyListeners();
     _syncTailnetStatus();
   }

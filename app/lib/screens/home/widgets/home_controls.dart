@@ -82,6 +82,17 @@ class HomeControls extends StatelessWidget {
     final toggleEnabled = canToggle && (state.tunnelUp || state.configRaw.isNotEmpty);
     // Задача 579 — пункт NETWORKS в перечне направлений.
     final hasNetworks = state.tunnelUp && state.networksNodes.isNotEmpty;
+    // §693 — HTTP service sweep and mass ping are both list-wide network work:
+    // do not start them on top of each other, but always allow stopping the one
+    // that is already running.
+    final listChecksAvailable = state.tunnelUp &&
+        !state.busy &&
+        state.nodes.isNotEmpty &&
+        !state.showingNetworks;
+    final serviceCheckEnabled = controller.serviceHealthRunning ||
+        (listChecksAvailable && !controller.massPingRunning);
+    final massPingEnabled = controller.massPingRunning ||
+        (listChecksAvailable && !controller.serviceHealthRunning);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -248,17 +259,48 @@ class HomeControls extends StatelessWidget {
                   ),
                 ),
               ),
+              // §693 — explicit service reachability sweep. Unlike ping this
+              // performs real HTTP requests through every visible outbound, so
+              // it is never scheduled automatically.
+              Semantics(
+                button: true,
+                label: getLocalText.s(controller.serviceHealthRunning
+                    ? "Stop service check"
+                    : "Check services"),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: !serviceCheckEnabled
+                      ? null
+                      : () {
+                          if (controller.serviceHealthRunning) {
+                            controller.cancelServiceHealth();
+                          } else {
+                            unawaited(controller.runMassServiceHealth(
+                                order: presenter.computeDisplayList(state)));
+                          }
+                        },
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      controller.serviceHealthRunning
+                          ? Icons.stop_circle_outlined
+                          : Icons.fact_check_outlined,
+                      color: serviceCheckEnabled
+                          ? null
+                          : Theme.of(context).disabledColor,
+                    ),
+                  ),
+                ),
+              ),
               // §372 — InkWell, не GestureDetector: у последнего нет фокусного
               // узла, и на Android TV кнопка была недостижима с пульта
               // (D-pad её просто пропускал). InkWell фокусируется и
               // подсвечивается, поведение тапа/long-press то же.
               InkWell(
                 borderRadius: BorderRadius.circular(20),
-                // Задача 579 — в NETWORKS замера задержки нет.
-                onTap: (!state.tunnelUp ||
-                        state.busy ||
-                        state.nodes.isEmpty ||
-                        state.showingNetworks)
+                // Задача 579 — в NETWORKS замера задержки нет. §693 — не
+                // запускаем массовый ping поверх service-health sweep.
+                onTap: !massPingEnabled
                     ? null
                     : () {
                         if (controller.massPingRunning) {
@@ -278,12 +320,9 @@ class HomeControls extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   child: Icon(
                     controller.massPingRunning ? Icons.stop_circle_outlined : Icons.speed,
-                    color: (!state.tunnelUp ||
-                            state.busy ||
-                            state.nodes.isEmpty ||
-                            state.showingNetworks)
-                        ? Theme.of(context).disabledColor
-                        : null,
+                    color: massPingEnabled
+                        ? null
+                        : Theme.of(context).disabledColor,
                     ),
                   ),
                 ),

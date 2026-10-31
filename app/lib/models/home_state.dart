@@ -8,6 +8,7 @@ import 'stop_reason.dart';
 import 'traffic_snapshot.dart';
 import 'tunnel_status.dart';
 import 'ui_msg.dart';
+import 'service_health.dart';
 import '../services/l10n/locale_controller.dart';
 import '../services/networks_direction.dart';
 
@@ -70,6 +71,7 @@ class HomeState {
     this.highlightedNode,
     this.delayByDirection = const <String, Map<String, int>>{},
     this.pingBusy = const <String, String>{},
+    this.serviceHealth = const <String, NodeServiceHealth>{},
     this.endpointStates = const <String, String>{},
     this.endpointIdleSince = const <String, int>{},
     this.sickRoots = const <String, List<DependentRef>>{},
@@ -188,6 +190,10 @@ class HomeState {
   /// надо — см. [delayOf] / [delayIsForeign], они дают фоллбэк-семантику.
   final Map<String, Map<String, int>> delayByDirection;
   final Map<String, String> pingBusy;
+
+  /// §693 — session-only per-node service reachability from an explicit Home
+  /// service check. Never populated by background timers.
+  final Map<String, NodeServiceHealth> serviceHealth;
 
   /// §535 (ядро SPEC 097) — состояние WG/AWG-endpoint'а по тегу узла
   /// (`never_built` / `building` / `up` / `asleep` / `torn_down` / `down`),
@@ -531,6 +537,7 @@ class HomeState {
     Object? highlightedNode = _unset,
     Map<String, Map<String, int>>? delayByDirection,
     Map<String, String>? pingBusy,
+    Map<String, NodeServiceHealth>? serviceHealth,
     Map<String, String>? endpointStates,
     Map<String, int>? endpointIdleSince,
     Map<String, List<DependentRef>>? sickRoots,
@@ -595,6 +602,7 @@ class HomeState {
           : highlightedNode as String?,
       delayByDirection: delayByDirection ?? this.delayByDirection,
       pingBusy: pingBusy ?? this.pingBusy,
+      serviceHealth: serviceHealth ?? this.serviceHealth,
       endpointStates: endpointStates ?? this.endpointStates,
       endpointIdleSince: endpointIdleSince ?? this.endpointIdleSince,
       sickRoots: sickRoots ?? this.sickRoots,

@@ -16,8 +16,9 @@ actions.
 
 A single list row shows everything needed to choose a node: the name, whether
 the node is active, the protocol with transport and security, the last ping
-with its colour, the state of a WireGuard node, parse notifications. A long
-press opens the menu of actions on the node.
+with its colour, explicit NET/YT/GPT service-health badges, the state of a
+WireGuard node, parse notifications. A long press opens the menu of actions on
+the node.
 
 ## Parameters
 
@@ -28,9 +29,9 @@ No settings of its own. The pool badge regex is set on the auto-select group
 ## Inputs / Outputs
 
 **Input:** the node's tag and type from the built config, transport and
-security, the latency measurement, the endpoint node state from the core,
-source and build notifications, the selected member of an auto-select
-group.
+security, the latency measurement, the latest explicit service-health snapshot,
+the endpoint node state from the core, source and build notifications, the
+selected member of an auto-select group.
 **Output:** a row 56 dp high and a menu.
 
 ## Rules and invariants
@@ -51,6 +52,7 @@ ones.
 | Auto-select mode and choice | auto-select group | `🎯 [N] → node` or `🔀 [N/M]` + pool badges (`🇩🇪, 🇳🇱[2]`) |
 | Protocol·transport·security | a node with a protocol | `VLESS·xhttp·Reality+Vision`, `WG·awg2`, `Hy2·TLS`; not shown for auto-select |
 | WG/AWG state | the core returned the endpoint state | `up` / `sleep` / `down` / `off` (orange) |
+| Service health | ordinary real node | compact `NET` / `YT` / `GPT` pills before ping; neutral = untested, active = checking, green = available, red = blocked, orange = technical failure |
 | Ping | on the right, always at the edge | `NNMS`, `ERR`, `PING…`; `~` — a measurement of another Direction, dimmed |
 
 - Ping colour: < 200 ms — green, < 500 — orange, otherwise and `ERR` — red.
