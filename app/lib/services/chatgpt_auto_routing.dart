@@ -4,10 +4,16 @@ import '../models/custom_rule.dart';
 import 'settings_storage.dart';
 
 const _chatgptAutoTag = 'chatgpt-auto';
+const _normalVpnTag = 'vpn-1';
 const _chatgptPackage = 'com.openai.chatgpt';
 const _geminiPackage = 'com.google.android.apps.bard';
 const _chromePackage = 'com.android.chrome';
+const _telegramPackages = <String>[
+  'org.telegram.messenger.web',
+  'org.telegram.messenger',
+];
 const _chatgptPackageRuleName = 'ChatGPT app → ChatGPT Auto';
+const _telegramPackageRuleName = 'Telegram app → VPN ①';
 const _geminiPackageRuleName = 'Gemini app → ChatGPT Auto';
 const _geminiWebChromeRuleName = 'Gemini web Chrome → ChatGPT Auto';
 const _geminiWebChromeDomains = <String>[
@@ -44,6 +50,7 @@ Future<bool> ensureChatGptAutoRouting() async {
   final rules = await SettingsStorage.getCustomRules();
   var changed = false;
   var hasPackageRule = false;
+  var hasTelegramPackageRule = false;
   var hasGeminiPackageRule = false;
   var hasGeminiWebChromeRule = false;
   final next = <CustomRule>[];
@@ -64,6 +71,26 @@ Future<bool> ensureChatGptAutoRouting() async {
           enabled: true,
           packages: const [_chatgptPackage],
           outbound: _chatgptAutoTag,
+        );
+        changed = changed || repaired != rule;
+        next.add(repaired);
+        continue;
+      }
+
+      final isTelegramPackageRule =
+          rule.name == _telegramPackageRuleName ||
+          (rule.packages.any(_telegramPackages.contains) &&
+              rule.domains.isEmpty &&
+              rule.domainSuffixes.isEmpty &&
+              rule.domainKeywords.isEmpty &&
+              rule.ipCidrs.isEmpty);
+      if (isTelegramPackageRule) {
+        hasTelegramPackageRule = true;
+        final repaired = rule.copyWith(
+          name: _telegramPackageRuleName,
+          enabled: true,
+          packages: _telegramPackages,
+          outbound: _normalVpnTag,
         );
         changed = changed || repaired != rule;
         next.add(repaired);
@@ -135,6 +162,17 @@ Future<bool> ensureChatGptAutoRouting() async {
     changed = true;
   }
 
+
+  if (!hasTelegramPackageRule) {
+    next.add(CustomRuleInline(
+      name: _telegramPackageRuleName,
+      enabled: true,
+      orderNum: 990,
+      packages: _telegramPackages,
+      outbound: _normalVpnTag,
+    ));
+    changed = true;
+  }
 
   if (!hasGeminiWebChromeRule) {
     next.add(CustomRuleInline(
