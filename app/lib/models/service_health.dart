@@ -14,6 +14,7 @@ enum ServiceHealthService {
   net,
   youtube,
   chatgpt,
+  gemini,
 }
 
 class ServiceHealthResult {
@@ -102,6 +103,31 @@ class ServiceHealthResult {
           elapsedMs: elapsedMs,
           detail: available || status <= 0 ? '' : 'HTTP $status',
         );
+
+      case ServiceHealthService.gemini:
+        final lower = body.toLowerCase();
+        final regionBlocked =
+            lower.contains('gemini-api/docs/available-regions') ||
+            lower.contains('available regions for google ai studio') ||
+            lower.contains('region not supported') ||
+            lower.contains('user location is not supported for the api use');
+        if (regionBlocked) {
+          return ServiceHealthResult(
+            state: ServiceHealthState.blocked,
+            httpStatus: status,
+            elapsedMs: elapsedMs,
+            detail: 'gemini_region_blocked',
+          );
+        }
+        final available = status >= 200 && status < 400;
+        return ServiceHealthResult(
+          state: available
+              ? ServiceHealthState.available
+              : ServiceHealthState.failed,
+          httpStatus: status,
+          elapsedMs: elapsedMs,
+          detail: available || status <= 0 ? '' : 'HTTP $status',
+        );
     }
   }
 }
@@ -111,16 +137,19 @@ class NodeServiceHealth {
     this.net = ServiceHealthResult.untested,
     this.youtube = ServiceHealthResult.untested,
     this.chatgpt = ServiceHealthResult.untested,
+    this.gemini = ServiceHealthResult.untested,
   });
 
   final ServiceHealthResult net;
   final ServiceHealthResult youtube;
   final ServiceHealthResult chatgpt;
+  final ServiceHealthResult gemini;
 
   static const untested = NodeServiceHealth();
   static const checking = NodeServiceHealth(
     net: ServiceHealthResult.checking,
     youtube: ServiceHealthResult.checking,
     chatgpt: ServiceHealthResult.checking,
+    gemini: ServiceHealthResult.checking,
   );
 }

@@ -72,5 +72,41 @@ void main() {
       expect(result.state, ServiceHealthState.failed);
       expect(result.detail, 'HTTP 403');
     });
+    test('Gemini AI Studio 200 means web service is reachable', () {
+      final result = ServiceHealthResult.fromExchange(
+        service: ServiceHealthService.gemini,
+        status: 200,
+        elapsedMs: 280,
+        body: '<html><base href="https://aistudio.google.com/"></html>',
+        error: '',
+      );
+      expect(result.state, ServiceHealthState.available);
+    });
+
+    test('Gemini Available Regions redirect page is region blocked', () {
+      final result = ServiceHealthResult.fromExchange(
+        service: ServiceHealthService.gemini,
+        status: 200,
+        elapsedMs: 320,
+        body:
+            '<title>Available regions for Google AI Studio and Gemini API</title><a href="/gemini-api/docs/available-regions">regions</a>',
+        error: '',
+      );
+      expect(result.state, ServiceHealthState.blocked);
+      expect(result.detail, 'gemini_region_blocked');
+    });
+
+    test('Gemini generic 403 is technical failure, not region blocked', () {
+      final result = ServiceHealthResult.fromExchange(
+        service: ServiceHealthService.gemini,
+        status: 403,
+        elapsedMs: 300,
+        body: 'permission denied',
+        error: '',
+      );
+      expect(result.state, ServiceHealthState.failed);
+      expect(result.detail, 'HTTP 403');
+    });
+
   });
 }

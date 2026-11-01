@@ -15,10 +15,12 @@ mixin _ServiceHealthMixin on ChangeNotifier {
   static const int _serviceHealthTimeoutMs = 5000;
   static const int _serviceHealthSmallBody = 1024;
   static const int _serviceHealthOpenAiBody = 4096;
+  static const int _serviceHealthGeminiBody = 8192;
 
   static const String _netUrl = 'https://cp.cloudflare.com/generate_204';
   static const String _youtubeUrl = 'https://www.youtube.com/generate_204';
   static const String _chatgptUrl = 'https://api.openai.com/v1/models';
+  static const String _geminiUrl = 'https://aistudio.google.com/';
 
   bool _serviceHealthRunning = false;
   bool get serviceHealthRunning => _serviceHealthRunning;
@@ -37,10 +39,11 @@ mixin _ServiceHealthMixin on ChangeNotifier {
   bool _serviceHealthIsUntested(NodeServiceHealth value) =>
       value.net.state == ServiceHealthState.untested &&
       value.youtube.state == ServiceHealthState.untested &&
-      value.chatgpt.state == ServiceHealthState.untested;
+      value.chatgpt.state == ServiceHealthState.untested &&
+      value.gemini.state == ServiceHealthState.untested;
 
   /// Cheap automatic check for the currently selected real node. Unlike the
-  /// list-wide sweep this sends only three requests and runs at most once per
+  /// list-wide sweep this sends only four requests and runs at most once per
   /// node per tunnel session, so opening/switching a group immediately gives
   /// the badges useful meaning without a 63-node background benchmark.
   Future<void> runActiveNodeServiceHealth(String tag) async {
@@ -126,7 +129,8 @@ mixin _ServiceHealthMixin on ChangeNotifier {
       final h = entry.value;
       final checking = h.net.state == ServiceHealthState.checking ||
           h.youtube.state == ServiceHealthState.checking ||
-          h.chatgpt.state == ServiceHealthState.checking;
+          h.chatgpt.state == ServiceHealthState.checking ||
+          h.gemini.state == ServiceHealthState.checking;
       if (checking) {
         updated[entry.key] = NodeServiceHealth.untested;
         changed = true;
@@ -159,7 +163,18 @@ mixin _ServiceHealthMixin on ChangeNotifier {
       url: _chatgptUrl,
       maxBytes: _serviceHealthOpenAiBody,
     );
-    return NodeServiceHealth(net: net, youtube: youtube, chatgpt: chatgpt);
+    final gemini = await _checkService(
+      tag,
+      service: ServiceHealthService.gemini,
+      url: _geminiUrl,
+      maxBytes: _serviceHealthGeminiBody,
+    );
+    return NodeServiceHealth(
+      net: net,
+      youtube: youtube,
+      chatgpt: chatgpt,
+      gemini: gemini,
+    );
   }
 
   Future<ServiceHealthResult> _checkService(

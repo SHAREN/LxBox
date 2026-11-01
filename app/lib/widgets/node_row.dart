@@ -284,11 +284,13 @@ class NodeRow extends StatelessWidget {
         _serviceHealthBadge(cs, 'YT', health.youtube),
         const SizedBox(width: 2),
         _serviceHealthBadge(cs, 'GPT', health.chatgpt),
+        const SizedBox(width: 2),
+        _serviceHealthBadge(cs, 'GEM', health.gemini),
       ],
     );
   }
 
-  /// `[ACTIVE] [protocol]       [NET][YT][GPT] [50ms]` — left flex, health and
+  /// `[ACTIVE] [protocol]    [NET][YT][GPT][GEM] [50ms]` — left flex, health and
   /// ping stay compact and right-aligned.
   Widget _buildSubtitleRow(BuildContext context, ColorScheme cs) {
     final hasActive = item.active;
