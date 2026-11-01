@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Implemented locally — Flutter/CI/device verification blocked by environment |
+| Status | Implemented locally — analyzer/tests/build/install pass; live L×Box service-probe acceptance pending while another VPN client owns the Android VPN slot |
 | Start date | 2026-10-31 |
 | Commits | `cb30073d` — `feat: add per-node service health indicators` |
 | Source | Owner request: show per-node service availability directly in the Home VPN node list |
@@ -68,8 +68,11 @@ Completed locally on 2026-10-31:
 3. Source audit — `getUrlViaOutbound` is addressed by outbound tag and does not switch the active selector; the implementation has no connect/resume/timer/background trigger.
 4. Classifier unit cases are added for NET success, transport failure, YouTube deny, OpenAI 401, unsupported-country 403 and generic 403.
 
-Blocked in the current environment:
+Verification after Home PC toolchain setup:
 
-- `flutter analyze`, `flutter test` and APK build were not run: Flutter/Dart SDK is not installed in Home PC PATH and was not found in the project/workspace or targeted development directories.
-- GitHub CI could not be started from this branch: `origin` is `Leadaxe/LxBox`, push as `SHAREN` is denied with HTTP 403, and `SHAREN/LxBox` does not currently exist as a fork.
-- Device acceptance therefore remains pending: badge layout on the phone, real NET/YT/GPT responses, cancellation during live requests and tunnel-down clearing must be confirmed on an APK built from this commit.
+- `flutter analyze` — pass, no issues.
+- `flutter test test/models/service_health_test.dart` — 6/6 pass.
+- Signed arm64 release APK — built successfully on Home PC and installed with `adb install -r` without clearing L×Box data.
+- Phone screenshot confirms the badges render in the intended compact position beside latency. The follow-up revision makes untested state explicit (`?`) and automatically checks only the selected group's active real node once per tunnel session.
+- Live NET/YT/GPT acceptance is still pending because the user temporarily switched the system VPN slot to another client; L×Box was deliberately not foregrounded or allowed to displace it during this verification.
+- GitHub CI remains unavailable from this branch: `origin` is `Leadaxe/LxBox`, push as `SHAREN` is denied with HTTP 403, and `SHAREN/LxBox` does not currently exist as a fork.

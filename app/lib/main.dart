@@ -13,6 +13,7 @@ import 'services/l10n/locale_controller.dart';
 import 'services/automation/automation_dispatcher.dart';
 import 'services/automation/automation_sync.dart';
 import 'services/clash_log_pump.dart';
+import 'services/chatgpt_auto_routing.dart';
 import 'services/contract/registry.dart';
 import 'services/parser/engine/section_loader.dart';
 import 'services/parser/mappers/draft_sections.dart';
@@ -147,6 +148,10 @@ void main() async {
     // least_test становится failover. ПОСЛЕ seed Направлений (чистая
     // установка получает failover и у засеянных) и ДО первого билда.
     await SettingsStorage.migrateUrltestModeIfNeeded();
+    // Local fork: the Direction dropdown is only a view selector. Keep the
+    // ChatGPT app and AI-domain rule explicitly routed through chatgpt-auto so
+    // they cannot silently fall back to vpn-1/direct after config restore.
+    await ensureChatGptAutoRouting();
     // §229 — вызов one-shot ремапа preset_id (§228) убран: миграция удалена,
     // отработала у всех, кто обновлялся начиная с v2.10.0.
     // §043 — pump sing-box logs из Kotlin EventChannel "lxbox/coreLog" в

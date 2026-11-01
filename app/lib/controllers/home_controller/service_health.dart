@@ -33,6 +33,33 @@ mixin _ServiceHealthMixin on ChangeNotifier {
     }
   }
 
+
+  bool _serviceHealthIsUntested(NodeServiceHealth value) =>
+      value.net.state == ServiceHealthState.untested &&
+      value.youtube.state == ServiceHealthState.untested &&
+      value.chatgpt.state == ServiceHealthState.untested;
+
+  /// Cheap automatic check for the currently selected real node. Unlike the
+  /// list-wide sweep this sends only three requests and runs at most once per
+  /// node per tunnel session, so opening/switching a group immediately gives
+  /// the badges useful meaning without a 63-node background benchmark.
+  Future<void> runActiveNodeServiceHealth(String tag) async {
+    if (!_state.tunnelUp || _serviceHealthRunning) return;
+    final type = (_state.activeModel[tag]?.type ?? '').toLowerCase();
+    if (type == 'block' || type == 'selector' || type == 'urltest') return;
+    final existing = _state.serviceHealth[tag] ?? NodeServiceHealth.untested;
+    if (!_serviceHealthIsUntested(existing)) return;
+
+    final checking = Map<String, NodeServiceHealth>.from(_state.serviceHealth)
+      ..[tag] = NodeServiceHealth.checking;
+    _emit(_state.copyWith(serviceHealth: checking));
+    final result = await _checkNodeServices(tag);
+    if (!_state.tunnelUp || _serviceHealthRunning) return;
+    final updated = Map<String, NodeServiceHealth>.from(_state.serviceHealth)
+      ..[tag] = result;
+    _emit(_state.copyWith(serviceHealth: updated));
+  }
+
   /// Starts a bounded list-wide service check. A second call while active
   /// cancels scheduling and invalidates late results from the old generation.
   Future<void> runMassServiceHealth({List<String>? order}) async {

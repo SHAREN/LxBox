@@ -4,11 +4,12 @@ The Home node list can run an explicit service-level check through every visible
 
 ## Trigger and scope
 
-- The check starts only from the Home service-check action while the VPN tunnel is up.
-- A second tap cancels the current generation. New nodes are no longer scheduled and late replies from the cancelled generation are ignored.
+- The list-wide check starts only from the Home service-check action while the VPN tunnel is up.
+- Selecting/opening a group automatically checks only its currently active real node once per tunnel session. This is three requests, not a background list sweep.
+- A second tap on the list-wide action cancels the current generation. New nodes are no longer scheduled and late replies from the cancelled generation are ignored.
 - `block`, `selector` and `urltest` control nodes are skipped. Ordinary proxy/endpoint nodes and `direct` may be checked.
-- At most four nodes are checked in parallel. For one node the three requests run in order: NET → YT → GPT.
-- The action does not switch the selected node or touch group selection.
+- At most four nodes are checked in parallel during the list-wide sweep. For one node the three requests run in order: NET → YT → GPT.
+- Neither the active-node check nor the list-wide action switches the selected node or mutates group selection.
 
 ## Services and verdicts
 
@@ -22,13 +23,13 @@ The GPT badge is a network/region sentinel, not an authenticated ChatGPT session
 
 ## UI states
 
-Each service has one of five states: `untested`, `checking`, `available`, `blocked`, `failed`. The Home row keeps latency as a separate right-edge value and renders the three service badges immediately before it.
+Each service has one of five states: `untested`, `checking`, `available`, `blocked`, `failed`. The Home row keeps latency as a separate right-edge value and renders the three service badges immediately before it. The compact labels make the state explicit even before color is noticed: `NET?/YT?/GPT?` = untested, `…` = checking, `✓` = available, `×` = blocked and `!` = technical failure.
 
 The result map lives only in memory. Stopping or losing the VPN clears all service-health badges and invalidates every in-flight generation so an answer from the old path cannot repaint the new session.
 
 ## Guarantees
 
-- No automatic check on connect, resume, timer, scroll or background lifecycle.
+- No automatic list-wide check on connect, resume, timer, scroll or background lifecycle. The only automatic work is the three-request check of the currently active real node when its group becomes selected.
 - No persistence in settings or backup.
 - No automatic disabling, filtering or Auto-group mutation based on service results.
 - A generic HTTP 403 is never enough to label GPT as a regional block; the unsupported-region response must be recognized explicitly.

@@ -232,15 +232,25 @@ class NodeRow extends StatelessWidget {
     };
   }
 
+  String _serviceHealthLabel(String base, ServiceHealthResult result) =>
+      switch (result.state) {
+        ServiceHealthState.untested => '$base?',
+        ServiceHealthState.checking => '$base…',
+        ServiceHealthState.available => '$base✓',
+        ServiceHealthState.blocked => '$base×',
+        ServiceHealthState.failed => '$base!',
+      };
+
   Widget _serviceHealthBadge(
     ColorScheme cs,
     String label,
     ServiceHealthResult result,
   ) {
     final color = _serviceHealthColor(cs, result);
+    final renderedLabel = _serviceHealthLabel(label, result);
     return Container(
       height: 16,
-      constraints: const BoxConstraints(minWidth: 22),
+      constraints: const BoxConstraints(minWidth: 26),
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 3),
       decoration: BoxDecoration(
@@ -250,7 +260,7 @@ class NodeRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
-        label, // l10n-exempt: compact technical service abbreviation.
+        renderedLabel, // l10n-exempt: compact technical service abbreviation.
         maxLines: 1,
         style: TextStyle(
           fontSize: 7.5,

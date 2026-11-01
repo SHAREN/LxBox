@@ -1929,6 +1929,7 @@ class HomeController extends ChangeNotifier
     );
     // §123 — activeInGroup стал известен → обновить подтекст шторки.
     await _pushNotificationLabels();
+    if (now != null) unawaited(runActiveNodeServiceHealth(now));
   }
 
   /// §565 / задача 570 — наблюдатель выбора члена selector-группы (главный
