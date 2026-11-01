@@ -6,8 +6,26 @@ import 'settings_storage.dart';
 const _chatgptAutoTag = 'chatgpt-auto';
 const _chatgptPackage = 'com.openai.chatgpt';
 const _geminiPackage = 'com.google.android.apps.bard';
+const _chromePackage = 'com.android.chrome';
 const _chatgptPackageRuleName = 'ChatGPT app → ChatGPT Auto';
 const _geminiPackageRuleName = 'Gemini app → ChatGPT Auto';
+const _geminiWebChromeRuleName = 'Gemini web Chrome → ChatGPT Auto';
+const _geminiWebChromeDomains = <String>[
+  'accounts.google.com',
+  'content.googleapis.com',
+  'gemini.app.google',
+  'gemini.google.com',
+  'gemini.gstatic.com',
+  'geminiweb-pa.clients6.google.com',
+  'lh3.googleusercontent.com',
+  'ogads-pa.clients6.google.com',
+  'ogs.google.com',
+  'push.clients6.google.com',
+  'ssl.gstatic.com',
+  'waa-pa.clients6.google.com',
+  'www.gstatic.com',
+  'www.google.com',
+];
 const _legacyAiRuleName = 'AI services → VPN';
 const _autoAiRuleName = 'AI services → ChatGPT Auto';
 
@@ -27,6 +45,7 @@ Future<bool> ensureChatGptAutoRouting() async {
   var changed = false;
   var hasPackageRule = false;
   var hasGeminiPackageRule = false;
+  var hasGeminiWebChromeRule = false;
   final next = <CustomRule>[];
 
   for (final rule in rules) {
@@ -71,6 +90,22 @@ Future<bool> ensureChatGptAutoRouting() async {
         continue;
       }
 
+      final isGeminiWebChromeRule =
+          rule.name == _geminiWebChromeRuleName;
+      if (isGeminiWebChromeRule) {
+        hasGeminiWebChromeRule = true;
+        final repaired = rule.copyWith(
+          name: _geminiWebChromeRuleName,
+          enabled: true,
+          domains: _geminiWebChromeDomains,
+          packages: const [_chromePackage],
+          outbound: _chatgptAutoTag,
+        );
+        changed = changed || repaired != rule;
+        next.add(repaired);
+        continue;
+      }
+
       final isAiDomainRule =
           (rule.name == _legacyAiRuleName || rule.name == _autoAiRuleName) &&
           rule.domainSuffixes.contains('chatgpt.com') &&
@@ -100,6 +135,18 @@ Future<bool> ensureChatGptAutoRouting() async {
     changed = true;
   }
 
+
+  if (!hasGeminiWebChromeRule) {
+    next.add(CustomRuleInline(
+      name: _geminiWebChromeRuleName,
+      enabled: true,
+      orderNum: 990,
+      domains: _geminiWebChromeDomains,
+      packages: const [_chromePackage],
+      outbound: _chatgptAutoTag,
+    ));
+    changed = true;
+  }
 
   if (!hasGeminiPackageRule) {
     next.add(CustomRuleInline(
