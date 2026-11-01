@@ -165,12 +165,36 @@ mixin _ServiceHealthMixin on ChangeNotifier {
       url: _chatgptUrl,
       maxBytes: _serviceHealthOpenAiBody,
     );
-    final geminiProbe = await _checkService(
+    var geminiProbe = await _checkService(
       tag,
       service: ServiceHealthService.gemini,
       url: _geminiUrl,
       maxBytes: _serviceHealthGeminiBody,
     );
+    // Some transports (notably certain XHTTP profiles) can carry normal app
+    // traffic successfully while libbox diagnostic getURLViaOutbound fails.
+    // Do not mislabel that helper limitation as a Gemini/service failure: if
+    // the regular per-outbound URLTest reaches the same URL, the honest
+    // verdict is indeterminate (~), not failed (!).
+    if (geminiProbe.state == ServiceHealthState.failed) {
+      try {
+        final fallback = await _cc.urlTestOutbound(
+          tag,
+          link: _geminiUrl,
+          timeoutMs: _serviceHealthTimeoutMs,
+        );
+        if (fallback.ok) {
+          geminiProbe = ServiceHealthResult(
+            state: ServiceHealthState.indeterminate,
+            httpStatus: geminiProbe.httpStatus,
+            elapsedMs: fallback.delay,
+            detail: 'gemini_urltest_reachable',
+          );
+        }
+      } catch (_) {
+        // Keep the original technical failure when both probe paths fail.
+      }
+    }
     final gemini = await _applyGeminiOverride(tag, geminiProbe);
     return NodeServiceHealth(
       net: net,
