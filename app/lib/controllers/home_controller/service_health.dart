@@ -20,7 +20,9 @@ mixin _ServiceHealthMixin on ChangeNotifier {
   static const String _netUrl = 'https://cp.cloudflare.com/generate_204';
   static const String _youtubeUrl = 'https://www.youtube.com/generate_204';
   static const String _chatgptUrl = 'https://api.openai.com/v1/models';
-  static const String _geminiUrl = 'https://aistudio.google.com/';
+  static const String _geminiUrl = 'https://gemini.google.com/app';
+  static const String _geminiOverridesVar =
+      'service_health_gemini_overrides_v1';
 
   bool _serviceHealthRunning = false;
   bool get serviceHealthRunning => _serviceHealthRunning;
@@ -163,18 +165,50 @@ mixin _ServiceHealthMixin on ChangeNotifier {
       url: _chatgptUrl,
       maxBytes: _serviceHealthOpenAiBody,
     );
-    final gemini = await _checkService(
+    final geminiProbe = await _checkService(
       tag,
       service: ServiceHealthService.gemini,
       url: _geminiUrl,
       maxBytes: _serviceHealthGeminiBody,
     );
+    final gemini = await _applyGeminiOverride(tag, geminiProbe);
     return NodeServiceHealth(
       net: net,
       youtube: youtube,
       chatgpt: chatgpt,
       gemini: gemini,
     );
+  }
+
+  Future<ServiceHealthResult> _applyGeminiOverride(
+    String tag,
+    ServiceHealthResult probe,
+  ) async {
+    try {
+      final raw = await SettingsStorage.getVar(_geminiOverridesVar, '{}');
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return probe;
+      final verdict = decoded[tag]?.toString().toLowerCase();
+      if (verdict == 'blocked') {
+        return ServiceHealthResult(
+          state: ServiceHealthState.blocked,
+          httpStatus: probe.httpStatus,
+          elapsedMs: probe.elapsedMs,
+          detail: 'gemini_region_blocked_manual',
+        );
+      }
+      if (verdict == 'available') {
+        return ServiceHealthResult(
+          state: ServiceHealthState.available,
+          httpStatus: probe.httpStatus,
+          elapsedMs: probe.elapsedMs,
+          detail: 'gemini_region_available_manual',
+        );
+      }
+    } catch (_) {
+      // Malformed optional override must never break the network probe.
+    }
+    return probe;
   }
 
   Future<ServiceHealthResult> _checkService(

@@ -6,6 +6,7 @@ enum ServiceHealthState {
   untested,
   checking,
   available,
+  indeterminate,
   blocked,
   failed,
 }
@@ -109,6 +110,9 @@ class ServiceHealthResult {
         final regionBlocked =
             lower.contains('gemini-api/docs/available-regions') ||
             lower.contains('available regions for google ai studio') ||
+            lower.contains('gemini is not currently supported in your country') ||
+            lower.contains('gemini is currently not supported in your region') ||
+            lower.contains('gemini пока не поддерживается в вашей стране') ||
             lower.contains('region not supported') ||
             lower.contains('user location is not supported for the api use');
         if (regionBlocked) {
@@ -119,14 +123,22 @@ class ServiceHealthResult {
             detail: 'gemini_region_blocked',
           );
         }
-        final available = status >= 200 && status < 400;
+        // A credential-free GET can return 200 even when the signed-in Gemini
+        // app immediately shows a country/region block. Therefore 2xx/3xx only
+        // proves transport/web-shell reachability, not Gemini Apps eligibility.
+        if (status >= 200 && status < 400) {
+          return ServiceHealthResult(
+            state: ServiceHealthState.indeterminate,
+            httpStatus: status,
+            elapsedMs: elapsedMs,
+            detail: 'gemini_region_not_verified',
+          );
+        }
         return ServiceHealthResult(
-          state: available
-              ? ServiceHealthState.available
-              : ServiceHealthState.failed,
+          state: ServiceHealthState.failed,
           httpStatus: status,
           elapsedMs: elapsedMs,
-          detail: available || status <= 0 ? '' : 'HTTP $status',
+          detail: status <= 0 ? '' : 'HTTP $status',
         );
     }
   }

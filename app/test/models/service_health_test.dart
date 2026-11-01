@@ -72,7 +72,7 @@ void main() {
       expect(result.state, ServiceHealthState.failed);
       expect(result.detail, 'HTTP 403');
     });
-    test('Gemini AI Studio 200 means web service is reachable', () {
+    test('Gemini credential-free 200 is region-indeterminate', () {
       final result = ServiceHealthResult.fromExchange(
         service: ServiceHealthService.gemini,
         status: 200,
@@ -80,7 +80,8 @@ void main() {
         body: '<html><base href="https://aistudio.google.com/"></html>',
         error: '',
       );
-      expect(result.state, ServiceHealthState.available);
+      expect(result.state, ServiceHealthState.indeterminate);
+      expect(result.detail, 'gemini_region_not_verified');
     });
 
     test('Gemini Available Regions redirect page is region blocked', () {
@@ -94,6 +95,17 @@ void main() {
       );
       expect(result.state, ServiceHealthState.blocked);
       expect(result.detail, 'gemini_region_blocked');
+    });
+
+    test('Gemini signed-in country block text is region blocked', () {
+      final result = ServiceHealthResult.fromExchange(
+        service: ServiceHealthService.gemini,
+        status: 200,
+        elapsedMs: 290,
+        body: 'Gemini пока не поддерживается в вашей стране. Мы сообщим, когда это изменится.',
+        error: '',
+      );
+      expect(result.state, ServiceHealthState.blocked);
     });
 
     test('Gemini generic 403 is technical failure, not region blocked', () {

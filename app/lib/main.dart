@@ -152,6 +152,9 @@ void main() async {
     // ChatGPT app and AI-domain rule explicitly routed through chatgpt-auto so
     // they cannot silently fall back to vpn-1/direct after config restore.
     await ensureChatGptAutoRouting();
+    // Owner-confirmed Gemini Apps regional block on one node; seed once so
+    // credential-free GEM probes never overwrite that real-world verdict.
+    await ensureGeminiManualVerdictSeed();
     // §229 — вызов one-shot ремапа preset_id (§228) убран: миграция удалена,
     // отработала у всех, кто обновлялся начиная с v2.10.0.
     // §043 — pump sing-box logs из Kotlin EventChannel "lxbox/coreLog" в

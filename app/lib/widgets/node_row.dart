@@ -227,6 +227,7 @@ class NodeRow extends StatelessWidget {
       ServiceHealthState.untested => cs.onSurfaceVariant.withValues(alpha: 0.45),
       ServiceHealthState.checking => cs.primary,
       ServiceHealthState.available => Colors.green,
+      ServiceHealthState.indeterminate => Colors.amber,
       ServiceHealthState.blocked => cs.error,
       ServiceHealthState.failed => Colors.orange,
     };
@@ -237,6 +238,7 @@ class NodeRow extends StatelessWidget {
         ServiceHealthState.untested => '$base?',
         ServiceHealthState.checking => '$base…',
         ServiceHealthState.available => '$base✓',
+        ServiceHealthState.indeterminate => '$base~',
         ServiceHealthState.blocked => '$base×',
         ServiceHealthState.failed => '$base!',
       };
