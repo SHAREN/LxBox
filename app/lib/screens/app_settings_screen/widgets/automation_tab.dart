@@ -6,6 +6,7 @@ import '../../../services/project_links.dart';
 import '../../../services/settings_storage.dart';
 import '../../../services/url_launcher.dart' as ul;
 import '../../../vpn/box_vpn_client.dart';
+import '../../service_failover_screen.dart';
 import '../../../services/l10n/locale_controller.dart';
 
 /// §047 Public Intent API — вкладка App Settings → Automation.
@@ -168,6 +169,22 @@ class _AutomationTabState extends State<AutomationTab> {
     return ListView(
       padding: widget.padding,
       children: [
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.alt_route),
+            title: Text(getLocalText.s("Smart service failover")),
+            subtitle: Text(getLocalText.s(
+              "Telegram, ChatGPT, Gemini and other blocked services can use independent servers and switch when the service itself fails.",
+            )),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ServiceFailoverScreen(),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         Text(getLocalText.s("Automation API"),
             style: theme.textTheme.titleMedium),
         const SizedBox(height: 4),

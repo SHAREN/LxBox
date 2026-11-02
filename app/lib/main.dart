@@ -25,6 +25,7 @@ import 'services/subscription/subscription_identity.dart';
 import 'services/debug/bootstrap.dart' as debug_bootstrap;
 import 'services/nav/home_return_observer.dart';
 import 'services/settings_storage.dart';
+import 'services/service_failover_manager.dart';
 import 'services/template_loader.dart';
 import 'services/url_launcher.dart';
 import 'services/version_info.dart';
@@ -155,6 +156,10 @@ void main() async {
     // Owner-confirmed Gemini Apps regional block on one node; seed once so
     // credential-free GEM probes never overwrite that real-world verdict.
     await ensureGeminiManualVerdictSeed();
+    // Service-aware per-app monitor: lightweight CommandClient observer +
+    // adaptive probes/failover for Telegram, ChatGPT and Gemini. It does not
+    // enable the user-facing global traffic recorder.
+    unawaited(ServiceFailoverManager.I.init());
     // §229 — вызов one-shot ремапа preset_id (§228) убран: миграция удалена,
     // отработала у всех, кто обновлялся начиная с v2.10.0.
     // §043 — pump sing-box logs из Kotlin EventChannel "lxbox/coreLog" в

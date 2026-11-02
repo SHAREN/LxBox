@@ -239,7 +239,16 @@ class CcChannel {
   int _profilerRefs = 0;
   Future<void> acquireProfiler() async {
     _profilerRefs++;
-    if (_profilerRefs == 1) await connectProfiler();
+    if (_profilerRefs != 1) return;
+    try {
+      await connectProfiler();
+    } catch (_) {
+      // A failed 0→1 connect must not poison the refcount. Otherwise a later
+      // retry increments 1→2, skips connectProfiler forever, and every
+      // background consumer believes it owns a profiler that never existed.
+      _profilerRefs--;
+      rethrow;
+    }
   }
 
   Future<void> releaseProfiler() async {

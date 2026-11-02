@@ -630,6 +630,10 @@ class VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware,
                     result.error("APP_INFO_ERROR", e.message, null)
                 }
             }
+            "isScreenInteractive" -> {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                result.success(pm.isInteractive)
+            }
             "isIgnoringBatteryOptimizations" -> {
                 val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
                 result.success(pm.isIgnoringBatteryOptimizations(context.packageName))

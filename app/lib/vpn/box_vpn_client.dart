@@ -483,6 +483,18 @@ class BoxVpnClient {
   // System settings (battery / notifications / app details)
   // ---------------------------------------------------------------------------
 
+  /// Whether the device display is currently interactive (screen/user awake).
+  /// Used by service-aware failover to avoid aggressive active probes while
+  /// the phone is sleeping; passive connection failure detection still runs.
+  Future<bool> isScreenInteractive() async {
+    final interactive = await _invoke<bool>(
+      _Methods.isScreenInteractive,
+      timeout: _Timeouts.settings,
+      onTimeoutValue: false,
+    );
+    return interactive ?? false;
+  }
+
   /// Whether app is whitelisted from battery optimization (Doze/App Standby).
   Future<bool> isIgnoringBatteryOptimizations() async {
     final ok = await _invoke<bool>(

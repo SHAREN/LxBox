@@ -69,6 +69,7 @@ class _Methods {
 
   // System settings
   static const isIgnoringBatteryOptimizations = 'isIgnoringBatteryOptimizations';
+  static const isScreenInteractive = 'isScreenInteractive';
   static const openBatteryOptimizationSettings = 'openBatteryOptimizationSettings';
   static const openAppDetailsSettings = 'openAppDetailsSettings';
   static const areNotificationsEnabled = 'areNotificationsEnabled';
