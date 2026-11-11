@@ -12,6 +12,8 @@ Do not invent selected nodes or ping ages from saved config or request time.
 ## Change
 
 Enrich authenticated, read-only `GET /state` with:
+
+For true live selection while the LBox UI is backgrounded, also add `GET /state/route-status` using a 2-second bounded CommandClient `getGroups()` snapshot. A 200 response labels `source=kernel_unary` only after successful kernel fetch; on failure it returns the cached Home snapshot labelled `source=cached_home` (not claimed live). The companion reads this endpoint when available and degrades safely on older LBox versions.
 - `route_groups[]` from the live CommandClient `HomeState.ccGroups`:
   `tag,type,selected,selectable,items[{tag,type,delay_ms,checked_at_unix_s}]`.
 - `service_health` snapshot of session-only, explicitly initiated

@@ -1,4 +1,5 @@
 import '../../../models/home_state.dart';
+import '../../../vpn/cc_channel.dart';
 import '../../tailscale_network.dart';
 
 /// [HomeState] → JSON-map для `GET /state`. Ключи в snake_case,
@@ -26,24 +27,7 @@ Map<String, Object?> serializeHomeState(HomeState s) {
         if (g.selected.isNotEmpty) g.tag: g.selected,
     },
     // Independent live selector snapshot for the companion monitor; no URIs.
-    'route_groups': [
-      for (final group in s.ccGroups)
-        {
-          'tag': group.tag,
-          'type': group.type,
-          'selected': group.selected,
-          'selectable': group.selectable,
-          'items': [
-            for (final node in group.items)
-              {
-                'tag': node.tag,
-                'type': node.type,
-                'delay_ms': node.urlTestDelay,
-                'checked_at_unix_s': node.urlTestTime,
-              },
-          ],
-        },
-    ],
+    'route_groups': serializeRouteGroups(s.ccGroups),
     'nodes_count': s.nodes.length,
     // §325 — замеры разложены по Направлениям (`Направление → тег → ms`); ключ
     // `' scratch'` = замеры вне выбранного Направления. `last_delay` — плоский срез
@@ -89,3 +73,24 @@ Map<String, Object?> serializeHomeState(HomeState s) {
     'manual_order': s.manualOrder,
   };
 }
+
+/// Read-only live group selection and exact URLTest measurements.
+/// Never export server URLs or private configuration.
+List<Map<String, Object?>> serializeRouteGroups(List<CcGroup> groups) => [
+      for (final group in groups)
+        <String, Object?>{
+          'tag': group.tag,
+          'type': group.type,
+          'selected': group.selected,
+          'selectable': group.selectable,
+          'items': [
+            for (final node in group.items)
+              <String, Object?>{
+                'tag': node.tag,
+                'type': node.type,
+                'delay_ms': node.urlTestDelay,
+                'checked_at_unix_s': node.urlTestTime,
+              },
+          ],
+        },
+    ];
