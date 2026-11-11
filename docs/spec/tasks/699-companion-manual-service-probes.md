@@ -19,7 +19,11 @@ Authenticated Debug API on loopback port 9269:
 
 Only three known direction tags and kinds ping|service accepted.
 The server uses a fresh getGroups() and follows selected selector/urltest
-members, including nested groups. Callers cannot pass a raw node tag or URL.
+members, including nested groups. If an individual selector is omitted from
+the returned kernel groups but the VPN is up, it tests through the fixed
+logical direction outbound tag (e.g., telegram-auto) and explicitly reports
+selection_source=logical_direction; it does not falsely name a physical node.
+Callers cannot pass a raw node tag or URL.
 The POST returns accepted and selected_tag; the check executes asynchronously.
 GET returns per-direction/per-kind state and exact completed timestamp.
 
