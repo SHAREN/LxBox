@@ -1,4 +1,5 @@
 import '../../../models/background_mode.dart';
+import '../../../vpn/cc_channel.dart';
 import '../../../vpn/box_vpn_client.dart';
 import '../../settings_storage.dart';
 import '../context.dart';
@@ -15,6 +16,7 @@ import '../transport/response.dart';
 Future<DebugResponse> stateHandler(DebugRequest req, DebugContext ctx) async {
   return switch (req.path) {
     '/state' => _root(req, ctx),
+    '/state/route-status' => _routeStatus(req, ctx),
     '/state/subs' => _subs(req, ctx),
     '/state/rules' => _rules(req, ctx),
     '/state/storage' => _storage(req, ctx),
@@ -39,6 +41,38 @@ Future<DebugResponse> _root(DebugRequest req, DebugContext ctx) async {
   // не в HomeState). Computed read-only для диагностики lazy rebuild flow.
   json['config_dirty'] = ctx.requireSub().configDirty;
   return JsonResponse(json);
+}
+
+/// Read-only live route snapshot for the companion APK. Unlike /state,
+/// query the kernel's CommandClient on demand so a backgrounded LBox UI
+/// cannot report a stale selector choice after automatic failover.
+Future<DebugResponse> _routeStatus(DebugRequest req, DebugContext ctx) async {
+  final home = ctx.requireHome();
+  final state = home.state;
+  var groups = state.ccGroups;
+  var source = 'cached_home';
+  if (state.tunnelUp) {
+    try {
+      final fresh = await CcChannel.instance
+          .getGroups()
+          .timeout(const Duration(seconds: 2));
+      if (fresh != null && fresh.isNotEmpty) {
+        groups = fresh;
+        source = 'kernel_unary';
+      }
+    } catch (_) {
+      // The kernel is temporarily unavailable (or old); keep a labelled
+      // cached snapshot rather than claiming the selector is live.
+    }
+  }
+  return JsonResponse({
+    'ok': true,
+    'source': source,
+    'tunnel': state.tunnel.name,
+    'observed_at': DateTime.now().toUtc().toIso8601String(),
+    'route_groups': serializeRouteGroups(groups),
+    'service_health': serializeHomeState(state)['service_health'],
+  });
 }
 
 Future<DebugResponse> _subs(DebugRequest req, DebugContext ctx) async {

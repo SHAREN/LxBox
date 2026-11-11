@@ -1,4 +1,5 @@
 import '../../../models/home_state.dart';
+import '../../../vpn/cc_channel.dart';
 import '../../tailscale_network.dart';
 
 /// [HomeState] → JSON-map для `GET /state`. Ключи в snake_case,
@@ -21,24 +22,7 @@ Map<String, Object?> serializeHomeState(HomeState s) {
     // Companion monitor: live selector choices and kernel URLTest timestamps.
     // Read-only and credential-free: never include subscription/server URIs.
     // Note: urlTestTime is UNIX seconds; zero means "never measured".
-    'route_groups': [
-      for (final group in s.ccGroups)
-        {
-          'tag': group.tag,
-          'type': group.type,
-          'selected': group.selected,
-          'selectable': group.selectable,
-          'items': [
-            for (final node in group.items)
-              {
-                'tag': node.tag,
-                'type': node.type,
-                'delay_ms': node.urlTestDelay,
-                'checked_at_unix_s': node.urlTestTime,
-              },
-          ],
-        },
-    ],
+    'route_groups': serializeRouteGroups(s.ccGroups),
     // NET/YT/GPT/GEM are explicit checks, not equivalent to URLTest ping.
     // They are session-only; unavailable timestamps must not be fabricated.
     'service_health': {
@@ -111,3 +95,24 @@ Map<String, Object?> serializeHomeState(HomeState s) {
     'manual_order': s.manualOrder,
   };
 }
+
+/// Safe, read-only view of the actual CommandClient group selection and
+/// kernel URLTest timestamps. No server addresses or credentials are exported.
+List<Map<String, Object?>> serializeRouteGroups(List<CcGroup> groups) => [
+      for (final group in groups)
+        <String, Object?>{
+          'tag': group.tag,
+          'type': group.type,
+          'selected': group.selected,
+          'selectable': group.selectable,
+          'items': [
+            for (final node in group.items)
+              <String, Object?>{
+                'tag': node.tag,
+                'type': node.type,
+                'delay_ms': node.urlTestDelay,
+                'checked_at_unix_s': node.urlTestTime,
+              },
+          ],
+        },
+    ];
