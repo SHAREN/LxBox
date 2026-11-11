@@ -18,6 +18,54 @@ Map<String, Object?> serializeHomeState(HomeState s) {
     'selected_group': s.selectedGroup,
     'highlighted_node': s.highlightedNode,
     'groups': s.groups,
+    // Companion monitor: live selector choices and kernel URLTest timestamps.
+    // Read-only and credential-free: never include subscription/server URIs.
+    // Note: urlTestTime is UNIX seconds; zero means "never measured".
+    'route_groups': [
+      for (final group in s.ccGroups)
+        {
+          'tag': group.tag,
+          'type': group.type,
+          'selected': group.selected,
+          'selectable': group.selectable,
+          'items': [
+            for (final node in group.items)
+              {
+                'tag': node.tag,
+                'type': node.type,
+                'delay_ms': node.urlTestDelay,
+                'checked_at_unix_s': node.urlTestTime,
+              },
+          ],
+        },
+    ],
+    // NET/YT/GPT/GEM are explicit checks, not equivalent to URLTest ping.
+    // They are session-only; unavailable timestamps must not be fabricated.
+    'service_health': {
+      for (final entry in s.serviceHealth.entries)
+        entry.key: {
+          'net': {
+            'state': entry.value.net.state.name,
+            'elapsed_ms': entry.value.net.elapsedMs,
+            'http_status': entry.value.net.httpStatus,
+          },
+          'youtube': {
+            'state': entry.value.youtube.state.name,
+            'elapsed_ms': entry.value.youtube.elapsedMs,
+            'http_status': entry.value.youtube.httpStatus,
+          },
+          'chatgpt': {
+            'state': entry.value.chatgpt.state.name,
+            'elapsed_ms': entry.value.chatgpt.elapsedMs,
+            'http_status': entry.value.chatgpt.httpStatus,
+          },
+          'gemini': {
+            'state': entry.value.gemini.state.name,
+            'elapsed_ms': entry.value.gemini.elapsedMs,
+            'http_status': entry.value.gemini.httpStatus,
+          },
+        },
+    },
     'nodes_count': s.nodes.length,
     // §325 — замеры разложены по Направлениям (`Направление → тег → ms`); ключ
     // `' scratch'` = замеры вне выбранного Направления. `last_delay` — плоский срез
