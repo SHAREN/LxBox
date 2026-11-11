@@ -25,6 +25,25 @@ Map<String, Object?> serializeHomeState(HomeState s) {
       for (final g in s.ccGroups)
         if (g.selected.isNotEmpty) g.tag: g.selected,
     },
+    // Independent live selector snapshot for the companion monitor; no URIs.
+    'route_groups': [
+      for (final group in s.ccGroups)
+        {
+          'tag': group.tag,
+          'type': group.type,
+          'selected': group.selected,
+          'selectable': group.selectable,
+          'items': [
+            for (final node in group.items)
+              {
+                'tag': node.tag,
+                'type': node.type,
+                'delay_ms': node.urlTestDelay,
+                'checked_at_unix_s': node.urlTestTime,
+              },
+          ],
+        },
+    ],
     'nodes_count': s.nodes.length,
     // §325 — замеры разложены по Направлениям (`Направление → тег → ms`); ключ
     // `' scratch'` = замеры вне выбранного Направления. `last_delay` — плоский срез
