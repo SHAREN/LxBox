@@ -55,7 +55,8 @@ void main() {
         },
       ];
       if (call.method == 'ccUrlTestOutbound') {
-        expect((call.arguments as Map)['tag'],'🇫🇮 Helsinki');
+        expect(['🇫🇮 Helsinki','telegram-auto'],
+          contains((call.arguments as Map)['tag']));
         return {'delay': 132, 'error':''};
       }
       if (call.method == 'ccGetUrlViaOutbound') {
@@ -115,6 +116,19 @@ void main() {
       throwsA(isA<BadRequest>()),
     );
     expect(seen, isNot(contains('ccGetGroups')));
+  });
+
+  test('missing live selector uses LBox logical direction, with honest label', () async {
+    final accepted=body(await actionHandler(
+      req('POST','/action/monitor-probe?direction=telegram-auto&kind=ping'),ctx()));
+    expect(accepted['accepted'],true);
+    expect(accepted['selected_tag'],'telegram-auto');
+    expect(accepted['selection_source'],'logical_direction');
+    await Future<void>.delayed(const Duration(milliseconds:80));
+    final checks=MonitorProbes.instance.snapshot['checks'] as Map;
+    final ping=(checks['telegram-auto'] as Map)['ping'] as Map;
+    expect(ping['state'],'available');
+    expect(ping['selection_source'],'logical_direction');
   });
 
   test('nested selector resolves to physical outbound without switching it', () {

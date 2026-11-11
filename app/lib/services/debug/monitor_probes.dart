@@ -84,6 +84,7 @@ class MonitorProbes {
     };
 
     String tag;
+    var selectionSource = 'kernel_selected';
     try {
       final groups = await CcChannel.instance
           .getGroups()
@@ -91,9 +92,15 @@ class MonitorProbes {
       if (groups == null || groups.isEmpty) {
         throw const Conflict('live LBox kernel groups unavailable');
       }
-      tag = resolvePhysical(groups, direction) ?? '';
-      if (tag.isEmpty || tag == 'block' || tag == 'block-out') {
-        throw const Conflict('no active outbound for direction');
+      // Some selectors are not included in the lightweight groups snapshot.
+      // Still allow a test THROUGH the fixed logical direction tag, letting
+      // the running core resolve its selected member. Label this fallback;
+      // never claim that a physical server was identified.
+      final chosen = resolvePhysical(groups, direction);
+      tag = chosen ?? direction;
+      if (chosen == null) selectionSource = 'logical_direction';
+      if (tag == 'block' || tag == 'block-out') {
+        throw const Conflict('direction resolves to blocked outbound');
       }
       if (!context.requireHome().state.tunnelUp) {
         throw const Conflict('VPN tunnel disconnected during selection');
@@ -106,6 +113,7 @@ class MonitorProbes {
     _checks[key] = {
       ..._checks[key]!,
       'selected_tag': tag,
+      'selection_source': selectionSource,
     };
     unawaited(_run(
       key: key,
@@ -113,6 +121,7 @@ class MonitorProbes {
       direction: direction,
       kind: kind,
       generation: generation,
+      selectionSource: selectionSource,
     ));
     return {
       'ok': true,
@@ -120,6 +129,7 @@ class MonitorProbes {
       'direction': direction,
       'kind': kind,
       'selected_tag': tag,
+      'selection_source': selectionSource,
     };
   }
 
@@ -129,6 +139,7 @@ class MonitorProbes {
     required String direction,
     required String kind,
     required int generation,
+    required String selectionSource,
   }) async {
     final core = CcChannel.instance;
     var state = 'failed';
@@ -229,6 +240,7 @@ class MonitorProbes {
       'direction': direction,
       'kind': kind,
       'selected_tag': tag,
+      'selection_source': selectionSource,
       'state': state,
       'latency_ms': latencyMs,
       'http_status': httpStatus,
