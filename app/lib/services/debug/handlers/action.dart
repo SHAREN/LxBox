@@ -17,6 +17,7 @@ import '../../settings_storage.dart';
 import '../../update_checker.dart';
 import '../../version_info.dart';
 import '../context.dart';
+import '../monitor_probes.dart';
 import '../contract/errors.dart';
 import '../transport/request.dart';
 import '../transport/response.dart';
@@ -41,6 +42,7 @@ Future<DebugResponse> actionHandler(
   }
   return switch (req.path) {
     '/action/urltest' => _urltest(req, ctx),
+    '/action/monitor-probe' => _monitorProbe(req, ctx),
     '/action/urltest-all' => _urltestAll(ctx),
     '/action/switch-node' => _switchNode(req, ctx),
     '/action/set-group' => _setGroup(req, ctx),
@@ -186,6 +188,17 @@ JsonResponse _ok(String action, [Map<String, Object?> extras = const {}]) {
     'action': action,
     ...extras,
   });
+}
+
+/// Trigger one explicitly requested check using the currently selected LBox
+/// outbound, never an arbitrary node specified by the client.
+Future<DebugResponse> _monitorProbe(DebugRequest req, DebugContext ctx) async {
+  final direction = req.requiredQuery('direction');
+  final kind = req.requiredQuery('kind');
+  final accepted = await MonitorProbes.instance.start(
+    context: ctx, direction: direction, kind: kind,
+  );
+  return JsonResponse(accepted);
 }
 
 /// `/action/urltest` — единый endpoint для запуска URLTest. Scope

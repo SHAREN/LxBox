@@ -3,6 +3,7 @@ import '../../../vpn/cc_channel.dart';
 import '../../../vpn/box_vpn_client.dart';
 import '../../settings_storage.dart';
 import '../context.dart';
+import '../monitor_probes.dart';
 import '../contract/errors.dart';
 import '../serializers/home_state.dart';
 import '../serializers/rules.dart';
@@ -17,6 +18,7 @@ Future<DebugResponse> stateHandler(DebugRequest req, DebugContext ctx) async {
   return switch (req.path) {
     '/state' => _root(req, ctx),
     '/state/route-status' => _routeStatus(req, ctx),
+    '/state/monitor-probes' => JsonResponse(MonitorProbes.instance.snapshot),
     '/state/subs' => _subs(req, ctx),
     '/state/rules' => _rules(req, ctx),
     '/state/storage' => _storage(req, ctx),
