@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import '../../models/service_health.dart';
 import '../../vpn/cc_channel.dart';
 import '../subscription/user_agent.dart';
 import 'context.dart';
@@ -174,25 +173,43 @@ class MonitorProbes {
         latencyMs = result.elapsedMs;
         httpStatus = result.status;
         if (isChatGPT || isGemini) {
-          final judgement = ServiceHealthResult.fromExchange(
-            service: isChatGPT
-                ? ServiceHealthService.chatgpt
-                : ServiceHealthService.gemini,
-            status: result.status,
-            elapsedMs: result.elapsedMs,
-            body: result.content,
-            error: result.error,
-          );
-          state = judgement.state.name;
-          message = result.error.isNotEmpty
-              ? errorCategory(result.error)
-              : judgement.detail.isEmpty
-                  ? (state == 'available' ? 'api_reachable' : state)
-                  : judgement.detail;
-          // Generic 403 is NOT evidence of a regional block.
-          if (result.status == 403 && state != 'blocked') {
+          // Do not depend on the removed service-health UI model.
+          // Anonymous Gemini HTML reachability is not regional API proof.
+          final responseText = result.content.toLowerCase();
+          final chatRegionBlocked = result.status == 403 &&
+              (responseText.contains('unsupported_country_region_territory') ||
+               responseText.contains('country, region, or territory not supported'));
+          final geminiRegionBlocked =
+              (result.status == 400 || result.status == 403) &&
+              (responseText.contains('gemini-api/docs/available-regions') ||
+               responseText.contains('available regions for google ai studio') ||
+               responseText.contains('gemini is not currently supported in your country') ||
+               responseText.contains('gemini is currently not supported in your region') ||
+               responseText.contains('gemini пока не поддерживается в вашей стране') ||
+               responseText.contains('region not supported') ||
+               responseText.contains('user location is not supported for the api use'));
+          if (result.error.isNotEmpty) {
+            state = 'failed';
+            message = errorCategory(result.error);
+          } else if (chatRegionBlocked || geminiRegionBlocked) {
+            state = 'blocked';
+            message = chatRegionBlocked
+                ? 'unsupported_country_region_territory'
+                : 'gemini_region_blocked';
+          } else if (result.status == 403) {
             state = 'indeterminate';
             message = 'generic_403_not_region_proof';
+          } else if (isGemini && result.status >= 200 && result.status < 400) {
+            state = 'indeterminate';
+            message = 'gemini_region_not_verified';
+          } else if (isChatGPT &&
+              ((result.status >= 200 && result.status < 400) ||
+               result.status == 401 || result.status == 429)) {
+            state = 'available';
+            message = 'api_reachable';
+          } else {
+            state = 'failed';
+            message = result.status > 0 ? 'http_status_ambiguous' : 'transport_error';
           }
           // Gemini fallback proves transport only, never region clearance.
           if (isGemini && state == 'failed') {

@@ -101,6 +101,12 @@ void main() {
     expect(calls, isNot(contains('ccSelectOutbound')));
   });
 
+  test('old or unverified native core fails closed before API report', () async {
+    verdict = 'core_security_update_required';
+    await expectLater(check('api', 'node-A'), throwsA(isA<Conflict>()));
+    expect(calls, isNot(contains('ccSelectOutbound')));
+  });
+
   test('selectors, unknown tags and untrusted request keys rejected', () async {
     for (final kindAndTag in [
       ['ping', 'selector'], ['ping', 'unknown'],

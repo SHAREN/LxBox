@@ -1,6 +1,6 @@
 # Task 700 — Gemini API eligibility of a physical LBox outbound
 
-Status: **draft implementation; requires native redirect/security review and device QA**.
+Status: **draft implementation; redirect leak fixed in sing-box-lx, Go tests PASS; Android/device QA pending**.
 
 ## Problem
 Monitor currently verifies Gemini API only through the selected node. The
@@ -9,9 +9,9 @@ check Gemini API only for reachable nodes with unknown/stale regional verdict.
 Ping success is NOT evidence of Gemini availability; anonymous web success
 is NOT evidence of authenticated Gemini Web eligibility.
 
-Related: PR #4 — live route status and manual tests; issue #6 — per-server
-Gemini eligibility registry. This change is stacked onto the companion feature
-branch, not the LBox release branch.
+Related: issue #6 — per-server Gemini eligibility registry; a clean
+mainline branch replaces the obsolete PR #4 route-status stack. The
+sing-box-lx security fix is PR #1 — prevent custom-header leaks on redirects.
 
 ## Opt-in diagnostic bridge
 A new authenticated localhost POST action accepts a known physical node tag,
@@ -32,12 +32,25 @@ It allows neither user-provided URLs nor arbitrary proxy operations.
   Rate limits, auth/project errors, transport errors and ambiguous responses
   remain separate, and no result proves authenticated web-chat access.
 
-## Security gate — must pass before device rollout
-The native/libbox HTTP redirect behavior must be audited to prevent a
-credential-bearing request from forwarding its sensitive header to another
-origin. Audit Debug API request logging, verify no request bodies are persisted,
-and test fail-closed behavior on disconnection. This draft is **not** declared
-ready for installation while that redirect question remains unresolved.
+## Native credential safety and rollout gate
+The vulnerable sing-box-lx `GetURLViaOutbound` followed cross-origin HTTP
+redirects and could forward `x-goog-api-key` to another authority. Core fix
+`71063e6` rejects cross-scheme/authority redirects when custom request
+headers are present; three new Go regression tests plus full `daemon` tests
+pass. An isolated arm64 AAR containing the fix was built on Home PC.
+
+The Android bridge **fails closed**: before sending an API key it hashes the
+installed `libbox.so` and only accepts the SHA-256 of the tested arm64 build.
+Other/older cores return `core_security_update_required`, surfaced as HTTP
+conflict by the authenticated Debug endpoint. The native fingerprint is
+cached for the process; headerless diagnostics are unaffected. Future ABI or
+release builds must update the fingerprint **only after validating a new
+protected native artifact**. AAR packaging may strip JNI symbols and change
+the fingerprint; in that case the API check remains blocked, never unsafe.
+
+Do not deploy while Android Kotlin compilation and real-device A/B checks
+are pending. Confirm fail-closed when VPN is down, selector remains unchanged,
+and the POST body/key are absent from Debug access logs.
 
 ## Acceptance / evidence
 - LBox API only permits core-listed physical outbounds and a fixed host.

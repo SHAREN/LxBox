@@ -1297,7 +1297,7 @@ class VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware,
                 val apiKey = call.argument<String>("apiKey") ?: ""
                 pluginScope.launch {
                     val response = withContext(Dispatchers.IO) {
-                        cc.geminiApiOutbound(tag, apiKey)
+                        cc.geminiApiOutbound(tag, apiKey, context.applicationContext)
                     }
                     result.success(response)
                 }

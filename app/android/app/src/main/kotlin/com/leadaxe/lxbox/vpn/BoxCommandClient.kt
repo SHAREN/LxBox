@@ -1,5 +1,6 @@
 package com.leadaxe.lxbox.vpn
 
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -42,6 +43,9 @@ import io.nekohasekai.libbox.TaildropInbox
 import io.nekohasekai.libbox.TaildropInboxHandler
 import io.nekohasekai.libbox.TaildropInboxSubscription
 import io.nekohasekai.libbox.URLTestOutboundResult
+import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -1228,6 +1232,40 @@ class BoxCommandClient {
         }
     }
 
+    // Only the protected arm64 core built from the audited sing-box-lx fix is
+    // allowed to receive a Gemini API key. Other ABIs/builds fail closed.
+    // Legacy JNI packaging extracts libbox.so to nativeLibraryDir.
+    @Volatile private var protectedGeminiCore: Boolean? = null
+
+    private fun hasProtectedGeminiCore(context: Context): Boolean {
+        protectedGeminiCore?.let { return it }
+        return synchronized(this) {
+            protectedGeminiCore?.let { return@synchronized it }
+            val trusted = runCatching {
+                val library = File(context.applicationInfo.nativeLibraryDir, "libbox.so")
+                val digest = MessageDigest.getInstance("SHA-256")
+                FileInputStream(library).use { stream ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = stream.read(buffer)
+                        if (n < 0) break
+                        digest.update(buffer, 0, n)
+                    }
+                }
+                val actual = digest.digest().joinToString("") {
+                    "%02x".format(it.toInt() and 0xff)
+                }
+                val expected = listOf(
+                    "972468f1", "ca515add", "4ec8b3e0", "b9b52041",
+                    "1cc5725a", "7a5624a0", "9a9e6fcd", "4758880d"
+                ).joinToString("")
+                actual == expected
+            }.getOrDefault(false)
+            protectedGeminiCore = trusted
+            trusted
+        }
+    }
+
     /**
      * Opt-in Gemini eligibility probe for one physical outbound. Fixed Google
      * metadata endpoint, no generation, no selector mutation and no response
@@ -1236,7 +1274,13 @@ class BoxCommandClient {
      * Callers must authenticate to the localhost Debug API and explicitly
      * opt into the corresponding Monitor scheduler.
      */
-    fun geminiApiOutbound(tag: String, apiKey: String): Map<String, Any> {
+    fun geminiApiOutbound(tag: String, apiKey: String, context: Context): Map<String, Any> {
+        // Never pass the key to a core that may forward custom headers across
+        // HTTP redirects; the protected libbox.so is SHA-256 pinned below.
+        if (!hasProtectedGeminiCore(context)) {
+            return mapOf("verdict" to "core_security_update_required",
+                "http_status" to 0, "elapsed_ms" to 0)
+        }
         if (tag.isBlank() || tag.length > 256 ||
             apiKey.length !in 8..512 || apiKey.any { it.code < 33 || it.code > 126 }) {
             return mapOf("verdict" to "invalid_request", "http_status" to 0, "elapsed_ms" to 0)

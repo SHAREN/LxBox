@@ -78,6 +78,9 @@ class GeminiNodeProbe {
       }
       final result = await cc.geminiApiOutbound(tag, apiKey)
           .timeout(const Duration(seconds: 9));
+      if (result['verdict'] == 'core_security_update_required') {
+        throw const Conflict('protected libbox core update required');
+      }
       final verified = result['verified_tag'];
       if (verified != tag) {
         throw const Conflict('physical outbound not verified');
