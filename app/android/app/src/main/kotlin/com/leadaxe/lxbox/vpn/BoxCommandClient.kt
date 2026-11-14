@@ -1,5 +1,6 @@
 package com.leadaxe.lxbox.vpn
 
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -42,6 +43,9 @@ import io.nekohasekai.libbox.TaildropInbox
 import io.nekohasekai.libbox.TaildropInboxHandler
 import io.nekohasekai.libbox.TaildropInboxSubscription
 import io.nekohasekai.libbox.URLTestOutboundResult
+import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -1225,6 +1229,118 @@ class BoxCommandClient {
             )
         }.getOrElse {
             mapOf("error" to (it.message ?: "getURLViaOutbound failed"))
+        }
+    }
+
+    // Only the protected arm64 core built from the audited sing-box-lx fix is
+    // allowed to receive a Gemini API key. Other ABIs/builds fail closed.
+    // Legacy JNI packaging extracts libbox.so to nativeLibraryDir.
+    @Volatile private var protectedGeminiCore: Boolean? = null
+
+    private fun hasProtectedGeminiCore(context: Context): Boolean {
+        protectedGeminiCore?.let { return it }
+        return synchronized(this) {
+            protectedGeminiCore?.let { return@synchronized it }
+            val trusted = runCatching {
+                val library = File(context.applicationInfo.nativeLibraryDir, "libbox.so")
+                val digest = MessageDigest.getInstance("SHA-256")
+                FileInputStream(library).use { stream ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = stream.read(buffer)
+                        if (n < 0) break
+                        digest.update(buffer, 0, n)
+                    }
+                }
+                val actual = digest.digest().joinToString("") {
+                    "%02x".format(it.toInt() and 0xff)
+                }
+                // Hash the actual JNI file from the built APK, not the
+                // pre-packaging AAR: AGP strips the symbol table during
+                // packaging. This digest is tied to the protected arm64
+                // core build (sing-box-lx fix 71063e6).
+                val expected = listOf(
+                    "643f5635", "4f59698f", "4b05f2bf", "f75ed238",
+                    "3764b1a0", "3996d57a", "9da634c5", "f9e6326c"
+                ).joinToString("")
+                actual == expected
+            }.getOrDefault(false)
+            protectedGeminiCore = trusted
+            trusted
+        }
+    }
+
+    /**
+     * Opt-in Gemini eligibility probe for one physical outbound. Fixed Google
+     * metadata endpoint, no generation, no selector mutation and no response
+     * body/credentials returned to the UI. The key is used in-memory only.
+     *
+     * Callers must authenticate to the localhost Debug API and explicitly
+     * opt into the corresponding Monitor scheduler.
+     */
+    fun geminiApiOutbound(tag: String, apiKey: String, context: Context): Map<String, Any> {
+        // Never pass the key to a core that may forward custom headers across
+        // HTTP redirects; the protected libbox.so is SHA-256 pinned below.
+        if (!hasProtectedGeminiCore(context)) {
+            return mapOf("verdict" to "core_security_update_required",
+                "http_status" to 0, "elapsed_ms" to 0)
+        }
+        if (tag.isBlank() || tag.length > 256 ||
+            apiKey.length !in 8..512 || apiKey.any { it.code < 33 || it.code > 126 }) {
+            return mapOf("verdict" to "invalid_request", "http_status" to 0, "elapsed_ms" to 0)
+        }
+        val allowed = getOutbounds()?.any { outbound ->
+            if (outbound["tag"] != tag) return@any false
+            val type = (outbound["type"] as? String)?.lowercase() ?: return@any false
+            type !in setOf("selector", "urltest", "direct", "block", "dns", "reject")
+        } == true
+        if (!allowed) {
+            return mapOf("verdict" to "unknown_outbound", "http_status" to 0, "elapsed_ms" to 0)
+        }
+        val client = ensurePingClient()
+            ?: return mapOf("verdict" to "network_error", "http_status" to 0, "elapsed_ms" to 0)
+        return try {
+            val headers = HTTPHeaders().apply {
+                add("x-goog-api-key", apiKey)
+                add("Accept", "application/json")
+            }
+            val result = client.getURLViaOutbound(
+                tag,
+                "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1",
+                5000, 8192, headers,
+            )
+            val http = result.status()
+            val body = result.content().lowercase(java.util.Locale.ROOT)
+            val region = http in setOf(400, 403) &&
+                listOf("user location is not supported",
+                    "unsupported_country_region",
+                    "location is not supported for the api use",
+                    "region is not supported").any { body.contains(it) }
+            val verdict = when {
+                region -> "region_blocked_api"
+                http == 200 -> {
+                    val models = runCatching {
+                        org.json.JSONObject(result.content()).optJSONArray("models")
+                    }.getOrNull()
+                    if (models != null && models.length() > 0) "api_available"
+                    else "api_indeterminate"
+                }
+                http == 429 -> "rate_limited"
+                http in setOf(400, 401, 403) &&
+                    listOf("api key", "api_key", "permission", "credential")
+                        .any { body.contains(it) } -> "key_or_project_error"
+                else -> "api_indeterminate"
+            }
+            mapOf(
+                "verdict" to verdict,
+                "http_status" to http,
+                "elapsed_ms" to result.elapsedMs(),
+                "verified_tag" to tag,
+            )
+        } catch (_: Exception) {
+            // Never let a native exception interpolate a secret into logs/API.
+            mapOf("verdict" to "network_error", "http_status" to 0,
+                "elapsed_ms" to 0, "verified_tag" to tag)
         }
     }
 
