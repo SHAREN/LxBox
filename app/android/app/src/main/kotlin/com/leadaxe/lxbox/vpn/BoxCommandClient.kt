@@ -1007,6 +1007,74 @@ class BoxCommandClient {
         }
     }
 
+    /**
+     * Opt-in Gemini eligibility probe for one physical outbound. Fixed Google
+     * metadata endpoint, no generation, no selector mutation and no response
+     * body/credentials returned to the UI. The key is used in-memory only.
+     *
+     * Callers must authenticate to the localhost Debug API and explicitly
+     * opt into the corresponding Monitor scheduler.
+     */
+    fun geminiApiOutbound(tag: String, apiKey: String): Map<String, Any> {
+        if (tag.isBlank() || tag.length > 256 ||
+            apiKey.length !in 8..512 || apiKey.any { it.code < 33 || it.code > 126 }) {
+            return mapOf("verdict" to "invalid_request", "http_status" to 0, "elapsed_ms" to 0)
+        }
+        val allowed = getOutbounds()?.any { outbound ->
+            if (outbound["tag"] != tag) return@any false
+            val type = (outbound["type"] as? String)?.lowercase() ?: return@any false
+            type !in setOf("selector", "urltest", "direct", "block", "dns", "reject")
+        } == true
+        if (!allowed) {
+            return mapOf("verdict" to "unknown_outbound", "http_status" to 0, "elapsed_ms" to 0)
+        }
+        val client = ensurePingClient()
+            ?: return mapOf("verdict" to "network_error", "http_status" to 0, "elapsed_ms" to 0)
+        return try {
+            val headers = HTTPHeaders().apply {
+                add("x-goog-api-key", apiKey)
+                add("Accept", "application/json")
+            }
+            val result = client.getURLViaOutbound(
+                tag,
+                "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1",
+                5000, 8192, headers,
+            )
+            val http = result.status()
+            val body = result.content().lowercase(java.util.Locale.ROOT)
+            val region = http in setOf(400, 403) &&
+                listOf("user location is not supported",
+                    "unsupported_country_region",
+                    "location is not supported for the api use",
+                    "region is not supported").any { body.contains(it) }
+            val verdict = when {
+                region -> "region_blocked_api"
+                http == 200 -> {
+                    val models = runCatching {
+                        org.json.JSONObject(result.content()).optJSONArray("models")
+                    }.getOrNull()
+                    if (models != null && models.length() > 0) "api_available"
+                    else "api_indeterminate"
+                }
+                http == 429 -> "rate_limited"
+                http in setOf(400, 401, 403) &&
+                    listOf("api key", "api_key", "permission", "credential")
+                        .any { body.contains(it) } -> "key_or_project_error"
+                else -> "api_indeterminate"
+            }
+            mapOf(
+                "verdict" to verdict,
+                "http_status" to http,
+                "elapsed_ms" to result.elapsedMs(),
+                "verified_tag" to tag,
+            )
+        } catch (_: Exception) {
+            // Never let a native exception interpolate a secret into logs/API.
+            mapOf("verdict" to "network_error", "http_status" to 0,
+                "elapsed_ms" to 0, "verified_tag" to tag)
+        }
+    }
+
     /// §308 — групповой URLTest: ядро force-тестит ВСЕХ членов группы её
     /// конфиг-URL'ом и делает переселект на живой узел (+interrupt).
     /// Fire-and-forget в ядре (`go CheckOutbounds`): RPC возвращается сразу,
