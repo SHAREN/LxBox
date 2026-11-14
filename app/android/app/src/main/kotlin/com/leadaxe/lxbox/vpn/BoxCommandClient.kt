@@ -1255,9 +1255,13 @@ class BoxCommandClient {
                 val actual = digest.digest().joinToString("") {
                     "%02x".format(it.toInt() and 0xff)
                 }
+                // Hash the actual JNI file from the built APK, not the
+                // pre-packaging AAR: AGP strips the symbol table during
+                // packaging. This digest is tied to the protected arm64
+                // core build (sing-box-lx fix 71063e6).
                 val expected = listOf(
-                    "972468f1", "ca515add", "4ec8b3e0", "b9b52041",
-                    "1cc5725a", "7a5624a0", "9a9e6fcd", "4758880d"
+                    "643f5635", "4f59698f", "4b05f2bf", "f75ed238",
+                    "3764b1a0", "3996d57a", "9da634c5", "f9e6326c"
                 ).joinToString("")
                 actual == expected
             }.getOrDefault(false)

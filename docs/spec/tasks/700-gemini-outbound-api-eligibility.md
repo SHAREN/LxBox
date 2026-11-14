@@ -45,12 +45,17 @@ Other/older cores return `core_security_update_required`, surfaced as HTTP
 conflict by the authenticated Debug endpoint. The native fingerprint is
 cached for the process; headerless diagnostics are unaffected. Future ABI or
 release builds must update the fingerprint **only after validating a new
-protected native artifact**. AAR packaging may strip JNI symbols and change
-the fingerprint; in that case the API check remains blocked, never unsafe.
+protected native artifact**. Android packaging strips symbols: the raw AAR
+`libbox.so` hash differs from the APK's `lib/arm64-v8a/libbox.so` hash. The
+runtime guard pins the **APK-packaged** hash from a debug build that uses the
+protected core, not the pre-strip hash; any unknown build fails closed.
 
-Do not deploy while Android Kotlin compilation and real-device A/B checks
-are pending. Confirm fail-closed when VPN is down, selector remains unchanged,
-and the POST body/key are absent from Debug access logs.
+Android debug APK compilation on Home PC completed after selecting the working
+Gradle cache and disabling Kotlin incremental compilation (cross-drive cache
+bug). Repeat after this pinned-fingerprint change and compare the APK-native
+hash, then perform Pixel A/B checks before installation in production. Confirm
+fail-closed when VPN is down, selector remains unchanged, and no POST body/key
+appears in Debug access logs.
 
 ## Acceptance / evidence
 - LBox API only permits core-listed physical outbounds and a fixed host.
