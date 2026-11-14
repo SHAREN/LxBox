@@ -597,6 +597,16 @@ class CcChannel {
     return CcGetUrlResult.fromMap(_asMap(r ?? const {}));
   }
 
+  /// Opt-in diagnostic request via one physical LBox outbound.
+  /// The key is passed only to the native in-memory Google metadata request;
+  /// neither this call nor its response persists credentials or raw body.
+  Future<Map<String, dynamic>> geminiApiOutbound(String tag, String apiKey) async {
+    final response = await _methods.invokeMethod<Map<dynamic, dynamic>>(
+      'ccGeminiApiOutbound', {'tag': tag, 'apiKey': apiKey},
+    );
+    return _asMap(response ?? const {});
+  }
+
   /// §4.7 — снапшот route+DNS правил (диагностика).
   Future<List<CcRule>> getRules() async {
     final r = await _methods.invokeMethod<List<dynamic>>('ccGetRules');

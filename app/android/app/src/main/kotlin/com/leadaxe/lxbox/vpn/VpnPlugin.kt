@@ -1023,6 +1023,24 @@ class VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware,
                     result.success(r)
                 }
             }
+            // Strict Gemini API eligibility probe, scoped to one physical
+            // outbound. The Google key is a transient MethodChannel value:
+            // never log it, never serialize it to a Debug response.
+            "ccGeminiApiOutbound" -> {
+                val cc = BoxService.commandClient
+                if (cc == null) {
+                    result.success(mapOf("verdict" to "network_error"))
+                    return
+                }
+                val tag = call.argument<String>("tag") ?: ""
+                val apiKey = call.argument<String>("apiKey") ?: ""
+                pluginScope.launch {
+                    val response = withContext(Dispatchers.IO) {
+                        cc.geminiApiOutbound(tag, apiKey)
+                    }
+                    result.success(response)
+                }
+            }
             // §308 — групповой URLTest (force-тест всех членов + переселект в
             // ядре). Blocking unary → Dispatchers.IO, как ccUrlTestOutbound.
             "ccUrlTestGroup" -> {
