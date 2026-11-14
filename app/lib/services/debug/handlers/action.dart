@@ -18,6 +18,7 @@ import '../../update_checker.dart';
 import '../../version_info.dart';
 import '../context.dart';
 import '../monitor_probes.dart';
+import '../gemini_node_probe.dart';
 import '../contract/errors.dart';
 import '../transport/request.dart';
 import '../transport/response.dart';
@@ -43,6 +44,7 @@ Future<DebugResponse> actionHandler(
   return switch (req.path) {
     '/action/urltest' => _urltest(req, ctx),
     '/action/monitor-probe' => _monitorProbe(req, ctx),
+    '/action/gemini-node-probe' => _geminiNodeProbe(req, ctx),
     '/action/urltest-all' => _urltestAll(ctx),
     '/action/switch-node' => _switchNode(req, ctx),
     '/action/set-group' => _setGroup(req, ctx),
@@ -200,6 +202,12 @@ Future<DebugResponse> _monitorProbe(DebugRequest req, DebugContext ctx) async {
   );
   return JsonResponse(accepted);
 }
+
+/// POST /action/gemini-node-probe: authenticated fixed-host probe.
+/// No route changes and no raw Google response/secret in the result.
+Future<DebugResponse> _geminiNodeProbe(
+  DebugRequest req, DebugContext ctx,
+) async => JsonResponse(await GeminiNodeProbe.run(req, ctx));
 
 /// `/action/urltest` — единый endpoint для запуска URLTest. Scope
 /// определяется query-param'ом (ровно один из):
